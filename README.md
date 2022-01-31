@@ -1,0 +1,1 @@
+![Build](https://github.com/alexsnaps/tracetime/actions/workflows/rust.yml/badge.svg)
