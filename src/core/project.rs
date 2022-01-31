@@ -1,11 +1,10 @@
 use std::cmp::Ordering;
 use std::slice::Iter;
 
-use crate::core::Record;
 use crate::core::record::{IllegalStateError, RecordEnded};
+use crate::core::Record;
 
 type AdditionResult = Result<RecordAdded, IllegalStateError>;
-
 
 #[derive(Debug)]
 pub enum RecordAdded {
@@ -41,8 +40,12 @@ impl Project {
 
   pub fn add_record(&mut self, record: Record) -> AdditionResult {
     // End last record if in flight still or crop it
-    match self.records.iter_mut().last()
-      .map(|r| r.crop(record.start())) {
+    match self
+      .records
+      .iter_mut()
+      .last()
+      .map(|r| r.crop(record.start()))
+    {
       None => {
         self.records.push(record);
         Ok(RecordAdded::Started)
@@ -56,8 +59,8 @@ impl Project {
             RecordEnded::Cropped => Ok(RecordAdded::Cropped),
           }
         }
-        Err(err) => { Err(err) }
-      }
+        Err(err) => Err(err),
+      },
     }
   }
 }

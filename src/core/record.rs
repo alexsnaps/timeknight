@@ -95,7 +95,13 @@ mod tests {
   #[test]
   fn new_record_has_proper_defaults() {
     let record = Record::new();
-    assert_eq!(record.start().signed_duration_since(Record::now()).num_seconds(), 0);
+    assert_eq!(
+      record
+        .start()
+        .signed_duration_since(Record::now())
+        .num_seconds(),
+      0
+    );
     assert_eq!(record.duration(), Duration::ZERO);
     assert_eq!(record.is_billable(), true);
     assert_eq!(record.is_on_going(), true);
@@ -111,7 +117,6 @@ mod tests {
     assert_eq!(record.is_billable(), true);
     assert_eq!(record.is_on_going(), true);
   }
-
 
   #[test]
   fn negative_duration_is_zero() {
