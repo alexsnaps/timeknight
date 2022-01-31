@@ -1,4 +1,5 @@
 use chrono::{DateTime, FixedOffset, Local};
+use std::cmp::Ordering;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -44,7 +45,7 @@ impl Record {
   }
 
   pub fn duration(&self) -> Duration {
-    let end = self.end.or(Some(Record::now())).unwrap();
+    let end = self.end.or_else(|| Some(Record::now())).unwrap();
     let duration = end.signed_duration_since(self.start);
     if duration < chrono::Duration::zero() {
       return Duration::ZERO;
@@ -53,25 +54,23 @@ impl Record {
   }
 
   pub fn crop(&mut self, new_end: DateTime<FixedOffset>) -> RResult {
-    if self.start > new_end {
-      return Err(IllegalStateError::NegativeDuration);
-    } else if self.start == new_end {
-      return Err(IllegalStateError::NoDuration);
-    }
-
-    match self.end {
-      None => {
-        self.end = Some(new_end);
-        Ok(RecordEnded::Ended)
-      }
-      Some(end) => {
-        if new_end < end {
+    match self.start.cmp(&new_end) {
+      Ordering::Greater => Err(IllegalStateError::NegativeDuration),
+      Ordering::Less => Err(IllegalStateError::NoDuration),
+      Ordering::Equal => match self.end {
+        None => {
           self.end = Some(new_end);
-          Ok(RecordEnded::Cropped)
-        } else {
-          Ok(RecordEnded::Noop)
+          Ok(RecordEnded::Ended)
         }
-      }
+        Some(end) => {
+          if new_end < end {
+            self.end = Some(new_end);
+            Ok(RecordEnded::Cropped)
+          } else {
+            Ok(RecordEnded::Noop)
+          }
+        }
+      },
     }
   }
 
@@ -82,6 +81,12 @@ impl Record {
   fn now() -> DateTime<FixedOffset> {
     let now = Local::now();
     now.with_timezone(now.offset())
+  }
+}
+
+impl Default for Record {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -103,8 +108,8 @@ mod tests {
       0
     );
     assert_eq!(record.duration(), Duration::ZERO);
-    assert_eq!(record.is_billable(), true);
-    assert_eq!(record.is_on_going(), true);
+    assert!(record.is_billable());
+    assert!(record.is_on_going());
   }
 
   #[test]
@@ -114,8 +119,8 @@ mod tests {
     let record = Record::started_on(start);
     assert_eq!(record.start(), start);
     assert_eq!(record.duration(), Duration::from_secs(2));
-    assert_eq!(record.is_billable(), true);
-    assert_eq!(record.is_on_going(), true);
+    assert!(record.is_billable());
+    assert!(record.is_on_going());
   }
 
   #[test]
@@ -125,7 +130,7 @@ mod tests {
     let record = Record::started_on(start);
     assert_eq!(record.start(), start);
     assert_eq!(record.duration(), Duration::ZERO);
-    assert_eq!(record.is_billable(), true);
-    assert_eq!(record.is_on_going(), true);
+    assert!(record.is_billable());
+    assert!(record.is_on_going());
   }
 }
