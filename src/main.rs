@@ -1,25 +1,49 @@
 pub mod core;
 
-use chrono::offset::{Local, TimeZone};
-use crate::core::{Project, Record};
+use ansi_term::Colour;
+use clap::{arg, App, AppSettings};
 
 fn main() {
-  // let time = chrono::Local::now();
-  // println!("{:?}", time);
-  let start = Local.ymd(2021, 03, 14).and_hms(0, 0, 0).naive_utc();
-  let end = Local.ymd(2021, 03, 14).and_hms(4, 0, 0).naive_utc();
-  // let start = DateTime::parse_from_rfc3339("2021-03-14T00:00:00-05:00").unwrap();
-  // let end = DateTime::parse_from_rfc3339("2021-03-14T04:00:00-04:00").unwrap();
+  let matches = App::new("tracetime")
+    .about("Traces where all that time goes...")
+    .setting(AppSettings::SubcommandRequiredElseHelp)
+    .subcommand(
+      App::new("project")
+        .about("Creates a project")
+        .arg(arg!(<NAME> "The project name to create"))
+        .setting(AppSettings::ArgRequiredElseHelp),
+    )
+    .subcommand(
+      App::new("start")
+        .about("Starts tracking time for a project")
+        .arg(arg!(<NAME> "the project's name to start tracking time for"))
+        .setting(AppSettings::ArgRequiredElseHelp),
+    )
+    .subcommand(App::new("stop").about("Stops tracking time"))
+    .get_matches();
 
-  // FixedOffset::from_utc_date();
-
-  println!("{:?}", start);
-  println!("{:?}", end);
-  let diff = end.signed_duration_since(start);
-  println!("{}", diff.num_hours());
-
-  let mut project = Project::new("foo".to_owned());
-  let started = project.start();
-  println!("Project {} got started: {:?}", project.name(), started);
-  println!("with {} record", project.records().count());
+  match matches.subcommand() {
+    Some(("project", sub_matches)) => {
+      println!(
+        "{} project '{}'",
+        Colour::Green.bold().paint("Created"),
+        sub_matches.value_of("NAME").expect("required"),
+      );
+    }
+    Some(("start", sub_matches)) => {
+      println!(
+        "{} tracking time on '{}'",
+        Colour::Green.bold().paint("Started"),
+        sub_matches.value_of("NAME").expect("required"),
+      );
+    }
+    Some(("stop", _sub_matches)) => {
+      println!(
+        "{} tracking time on '{}'",
+        Colour::Green.bold().paint("Stopped"),
+        "unknown",
+      );
+    }
+    _ => unreachable!("clap should ensure we don't get here"),
+  }
 }
