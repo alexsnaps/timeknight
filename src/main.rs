@@ -3,10 +3,13 @@ pub mod core;
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn main() {
   let matches = App::new("tracetime")
     .about("Traces where all that time goes...")
     .setting(AppSettings::SubcommandRequiredElseHelp)
+    .version(VERSION)
     .subcommand(
       App::new("project")
         .about("Creates a project")
