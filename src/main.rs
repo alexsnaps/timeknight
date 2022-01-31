@@ -1,4 +1,5 @@
 pub mod core;
+pub mod storage;
 
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings};
