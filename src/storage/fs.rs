@@ -29,7 +29,7 @@ impl FsStorage {
     }
   }
 
-  pub fn create_project(&self, _project: &str) {
+  pub fn create_project(&mut self, _project: &str) {
     //
   }
 
