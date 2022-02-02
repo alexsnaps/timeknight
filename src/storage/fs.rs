@@ -3,9 +3,11 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-struct FsStorage {
+pub struct FsStorage {
   location: PathBuf,
 }
+
+const LOCK_FILE: &str = ".lock";
 
 impl FsStorage {
   pub fn new(location: &Path) -> Result<Self, ErrorKind> {
@@ -27,8 +29,12 @@ impl FsStorage {
     }
   }
 
+  pub fn create_project(&self, _project: &str) {
+    //
+  }
+
   fn lock_file(location: &Path) -> PathBuf {
-    location.join(".lock")
+    location.join(LOCK_FILE)
   }
 
   fn close(&mut self) -> Result<(), io::Error> {
@@ -39,7 +45,10 @@ impl FsStorage {
 impl Drop for FsStorage {
   fn drop(&mut self) {
     if self.close().is_err() {
-      eprintln!("Failed to remove lock file!")
+      eprintln!(
+        "Failed to remove lock file: {:?}!",
+        Self::lock_file(self.location.as_path())
+      )
     }
   }
 }
@@ -56,7 +65,7 @@ mod tests {
   #[test]
   fn test_create_errs_on_not_a_valid_dir() {
     assert_eq!(
-      FsStorage::new(Path::new("/nowaythisexitsPleaseTellMeNo")).err(),
+      FsStorage::new(Path::new("/noWayThisExitsPleaseTellMeNo")).err(),
       Some(InvalidInput)
     );
   }
