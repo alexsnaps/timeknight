@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::storage::Action;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::io::ErrorKind;
@@ -45,7 +46,7 @@ impl FsStorage {
     }
   }
 
-  pub fn create_project(&mut self, _project: &str) {
+  pub fn add_action(&mut self, _action: Action) {
     //
   }
 

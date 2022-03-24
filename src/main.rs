@@ -17,6 +17,7 @@
 pub mod core;
 pub mod storage;
 
+use crate::storage::Action;
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
 use std::io::ErrorKind;
@@ -109,7 +110,7 @@ fn handle_command(matches: ArgMatches, storage: &mut FsStorage) {
 }
 
 fn create_project(storage: &mut FsStorage, project: &str) -> Result<(), ()> {
-  storage.create_project(project);
+  storage.add_action(Action::ProjectAdd { name: project });
   Ok(())
 }
 

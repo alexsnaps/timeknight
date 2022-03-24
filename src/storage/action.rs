@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-mod action;
-mod fs;
-
-pub use action::Action;
-pub use fs::FsStorage;
+pub enum Action<'a> {
+  ProjectAdd { name: &'a str },
+  ProjectDel { name: &'a str },
+}
