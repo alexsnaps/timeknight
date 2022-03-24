@@ -18,9 +18,11 @@ pub mod core;
 pub mod database;
 
 use database::Database;
+use std::fs;
 
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
+use console::Term;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
@@ -49,6 +51,7 @@ fn main() {
     .get_matches();
 
   let location = db_location();
+  init_if_needed(&location);
 
   match Database::open(location.as_path()) {
     Ok(mut database) => handle_command(matches, &mut database),
@@ -134,4 +137,40 @@ fn db_location() -> PathBuf {
       }
     })
     .join(DEFAULT_DIRECTORY)
+}
+
+fn init_if_needed(location: &PathBuf) {
+  if !location.exists() {
+    println!(
+      "{} Looks like the environment wasn't ever set up...",
+      Colour::Purple.paint("Welcome!")
+    );
+    println!(
+      "Should we initialize it in {} ?",
+      location.to_str().unwrap()
+    );
+    match Term::stdout().read_char() {
+      Ok('y') | Ok('Y') => match fs::create_dir(location.as_path()) {
+        Ok(_) => {
+          println!(
+            "{} database... {}",
+            Colour::Green.bold().paint("Initializing"),
+            Colour::Green.paint("Done!"),
+          );
+        }
+        Err(err) => {
+          eprintln!(
+            "{} initializing database: {}",
+            Colour::Red.bold().paint("Error"),
+            Colour::Red.paint(format!("{}", err)),
+          );
+          std::process::exit(1);
+        }
+      },
+      _ => {
+        eprintln!("{} bye!", Colour::Purple.paint("Aborting..."));
+        std::process::exit(1);
+      }
+    };
+  }
 }
