@@ -9,10 +9,10 @@ use storage::FsStorage;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const DEFAULT_DIRECTORY: &str = ".tracetime";
+const DEFAULT_DIRECTORY: &str = ".timeknight";
 
 fn main() {
-  let matches = App::new("tracetime")
+  let matches = App::new("timeknight")
     .about("Traces where all that time goes...")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version(VERSION)

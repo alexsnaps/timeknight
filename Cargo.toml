@@ -1,5 +1,5 @@
 [package]
-name = "tracetime"
+name = "timeknight"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "3.0.13" }
 ansi_term = { version = "0.12.1" }
 dirs = { version = "4.0.0" }
+
+[[bin]]
+name = "timek"
+path = "src/main.rs"

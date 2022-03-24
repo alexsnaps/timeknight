@@ -72,7 +72,7 @@ mod tests {
 
   #[test]
   fn test_succeeds_on_proper_dir() {
-    let location = env::temp_dir().join("tracetimeTest_succeeds_on_proper_dir");
+    let location = env::temp_dir().join("timeknightTest_succeeds_on_proper_dir");
     create_dir(location.as_path()).expect("failed to create temp directory");
     {
       let _working_storage = FsStorage::new(location.as_path()).expect("Failed creating Storage");
