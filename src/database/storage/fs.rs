@@ -46,8 +46,8 @@ impl FsStorage {
     }
   }
 
-  pub fn add_action(&mut self, _action: Action) {
-    //
+  pub fn record_action(&mut self, _action: &Action) -> Result<(), ()> {
+    Ok(())
   }
 
   fn lock_file(location: &Path) -> PathBuf {

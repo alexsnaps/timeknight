@@ -74,11 +74,11 @@ fn main() {
   }
 }
 
-fn handle_command(matches: ArgMatches, storage: &mut Database) {
+fn handle_command(matches: ArgMatches, database: &mut Database) {
   match matches.subcommand() {
     Some(("project", sub_matches)) => {
       let project = sub_matches.value_of("NAME").expect("required");
-      match create_project(storage, project) {
+      match database.add_project(project) {
         Ok(()) => {
           println!(
             "{} project '{}'",
@@ -110,11 +110,6 @@ fn handle_command(matches: ArgMatches, storage: &mut Database) {
     }
     _ => unreachable!("clap should ensure we don't get here"),
   }
-}
-
-fn create_project(database: &mut Database, project: &str) -> Result<(), ()> {
-  database.create_project(project);
-  Ok(())
 }
 
 fn db_location() -> PathBuf {

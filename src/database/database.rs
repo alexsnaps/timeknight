@@ -14,24 +14,53 @@
  * limitations under the License.
  */
 
+use crate::core::Project;
 use crate::database::storage::Action;
 use crate::database::storage::FsStorage;
+use std::collections::BTreeMap;
 use std::io::ErrorKind;
 use std::path::Path;
 
 pub struct Database {
   storage: FsStorage,
+  projects: BTreeMap<String, Project>,
 }
 
 impl Database {
   pub fn open(location: &Path) -> Result<Self, ErrorKind> {
     match FsStorage::new(location) {
-      Ok(storage) => Ok(Database { storage }),
+      Ok(storage) => {
+        let database = Database {
+          storage,
+          projects: BTreeMap::new(),
+        };
+        match load_all(database) {
+          Ok(database) => Ok(database),
+          Err(_) => Err(ErrorKind::InvalidData),
+        }
+      }
       Err(e) => Err(e),
     }
   }
 
-  pub fn create_project(&mut self, name: &str) {
-    self.storage.add_action(Action::ProjectAdd { name })
+  pub fn add_project(&mut self, name: &str) -> Result<(), ()> {
+    let key = name.to_lowercase();
+    if !self.projects.contains_key(&key) {
+      let action = Action::ProjectAdd { name };
+      return match self.storage.record_action(&action) {
+        Ok(_) => action.apply(&mut self.projects),
+        Err(_) => Err(()),
+      };
+    }
+    Err(())
   }
+
+  pub fn clear(&mut self) {
+    self.projects.clear();
+  }
+}
+
+fn load_all(mut database: Database) -> Result<Database, ()> {
+  database.clear();
+  Ok(database)
 }

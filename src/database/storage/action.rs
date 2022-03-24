@@ -14,7 +14,23 @@
  * limitations under the License.
  */
 
+use crate::core::Project;
+use std::collections::BTreeMap;
+
 pub enum Action<'a> {
   ProjectAdd { name: &'a str },
   // ProjectDel { name: &'a str },
+}
+
+impl<'a> Action<'a> {
+  pub fn apply(&self, data: &mut BTreeMap<String, Project>) -> Result<(), ()> {
+    match *self {
+      Action::ProjectAdd { name } => {
+        match data.insert(name.to_lowercase(), Project::new(name.to_string())) {
+          None => Ok(()),
+          Some(_) => Err(()),
+        }
+      }
+    }
+  }
 }
