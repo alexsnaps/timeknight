@@ -15,14 +15,14 @@
  */
 
 pub mod core;
-pub mod storage;
+pub mod database;
 
-use crate::storage::Action;
+use database::Database;
+
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use storage::FsStorage;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -50,8 +50,8 @@ fn main() {
 
   let location = db_location();
 
-  match FsStorage::new(location.as_path()) {
-    Ok(mut storage) => handle_command(matches, &mut storage),
+  match Database::open(location.as_path()) {
+    Ok(mut database) => handle_command(matches, &mut database),
     Err(err) => match err {
       ErrorKind::InvalidInput => {
         eprintln!(
@@ -71,7 +71,7 @@ fn main() {
   }
 }
 
-fn handle_command(matches: ArgMatches, storage: &mut FsStorage) {
+fn handle_command(matches: ArgMatches, storage: &mut Database) {
   match matches.subcommand() {
     Some(("project", sub_matches)) => {
       let project = sub_matches.value_of("NAME").expect("required");
@@ -109,8 +109,8 @@ fn handle_command(matches: ArgMatches, storage: &mut FsStorage) {
   }
 }
 
-fn create_project(storage: &mut FsStorage, project: &str) -> Result<(), ()> {
-  storage.add_action(Action::ProjectAdd { name: project });
+fn create_project(database: &mut Database, project: &str) -> Result<(), ()> {
+  database.create_project(project);
   Ok(())
 }
 

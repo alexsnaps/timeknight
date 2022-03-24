@@ -16,5 +16,5 @@
 
 pub enum Action<'a> {
   ProjectAdd { name: &'a str },
-  ProjectDel { name: &'a str },
+  // ProjectDel { name: &'a str },
 }

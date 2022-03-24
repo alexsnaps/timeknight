@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::storage::Action;
+use crate::database::storage::Action;
 use std::fs::{remove_file, OpenOptions};
 use std::io;
 use std::io::ErrorKind;
@@ -72,7 +72,7 @@ impl Drop for FsStorage {
 
 #[cfg(test)]
 mod tests {
-  use crate::storage::fs::FsStorage;
+  use crate::database::storage::fs::FsStorage;
   use std::env;
   use std::fs::{create_dir, remove_dir};
   use std::io::ErrorKind;
