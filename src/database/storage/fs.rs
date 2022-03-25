@@ -27,8 +27,7 @@ pub struct FsStorage {
 }
 
 const LOCK_FILE: &str = ".lock";
-
-const WAL: &'static str = "entries.wal";
+const WAL_FILE: &str = "entries.wal";
 
 impl FsStorage {
   pub fn new(location: &Path) -> Result<Self, ErrorKind> {
@@ -47,7 +46,7 @@ impl FsStorage {
         .write(true)
         .create(true)
         .append(true)
-        .open(location.join(WAL))
+        .open(location.join(WAL_FILE))
       {
         Ok(wal) => Ok(FsStorage {
           location: location.to_path_buf(),
@@ -72,7 +71,7 @@ impl FsStorage {
   }
 
   pub fn replay_actions(&self) -> impl Iterator<Item = (ProjectKey, Action)> + '_ {
-    io::BufReader::new(File::open(self.location.join(WAL)).unwrap())
+    io::BufReader::new(File::open(self.location.join(WAL_FILE)).unwrap())
       .lines()
       .map(|line| {
         let data = line.unwrap().into_bytes();
@@ -83,7 +82,11 @@ impl FsStorage {
 
   #[cfg(test)]
   pub fn delete(&mut self) {
-    remove_file(self.location.join(WAL));
+    let path = self.location.join(WAL_FILE);
+    remove_file(path.clone()).expect(&format!(
+      "Couldn't delete our database at {}",
+      path.display()
+    ));
   }
 
   fn lock_file(location: &Path) -> PathBuf {
@@ -110,7 +113,7 @@ impl Drop for FsStorage {
 mod tests {
   use crate::database::storage::fs::FsStorage;
   use std::env;
-  use std::fs::{create_dir, remove_dir, remove_file};
+  use std::fs::{create_dir, remove_dir};
   use std::io::ErrorKind;
   use std::io::ErrorKind::InvalidInput;
   use std::path::Path;
