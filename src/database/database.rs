@@ -87,8 +87,11 @@ impl Database {
     }
   }
 
-  pub fn clear(&mut self) {
-    self.projects.clear();
+  pub fn current_project(&self) -> Option<&Project> {
+    match &self.last_project {
+      Some(key) => self.projects.get(key),
+      None => None,
+    }
   }
 
   fn apply_action(
