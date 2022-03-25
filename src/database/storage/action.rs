@@ -15,22 +15,31 @@
  */
 
 use crate::core::Project;
-use std::collections::BTreeMap;
+use crate::database::database::ProjectKey;
+use std::collections::btree_map::Entry;
 
 pub enum Action<'a> {
   ProjectAdd { name: &'a str },
-  // ProjectDel { name: &'a str },
+  ProjectDel { name: &'a str },
 }
 
 impl<'a> Action<'a> {
-  pub fn apply(&self, data: &mut BTreeMap<String, Project>) -> Result<(), ()> {
+  pub fn apply(&self, entry: Entry<ProjectKey, Project>) -> Result<(), ()> {
     match *self {
-      Action::ProjectAdd { name } => {
-        match data.insert(name.to_lowercase(), Project::new(name.to_string())) {
-          None => Ok(()),
-          Some(_) => Err(()),
+      Action::ProjectAdd { name } => match entry {
+        Entry::Vacant(e) => {
+          e.insert(Project::new(name.to_string()));
+          Ok(())
         }
-      }
+        Entry::Occupied(_) => Err(()),
+      },
+      Action::ProjectDel { name: _ } => match entry {
+        Entry::Occupied(e) => {
+          e.remove();
+          Ok(())
+        }
+        Entry::Vacant(_) => Err(()),
+      },
     }
   }
 }

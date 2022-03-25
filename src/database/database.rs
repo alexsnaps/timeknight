@@ -17,13 +17,27 @@
 use crate::core::Project;
 use crate::database::storage::Action;
 use crate::database::storage::FsStorage;
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::ErrorKind;
 use std::path::Path;
 
 pub struct Database {
   storage: FsStorage,
-  projects: BTreeMap<String, Project>,
+  projects: BTreeMap<ProjectKey, Project>,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct ProjectKey {
+  key: String,
+}
+
+impl ProjectKey {
+  fn new(key: &str) -> Self {
+    ProjectKey {
+      key: key.to_lowercase(),
+    }
+  }
 }
 
 impl Database {
@@ -44,19 +58,36 @@ impl Database {
   }
 
   pub fn add_project(&mut self, name: &str) -> Result<(), ()> {
-    let key = name.to_lowercase();
-    if !self.projects.contains_key(&key) {
-      let action = Action::ProjectAdd { name };
-      return match self.storage.record_action(&action) {
-        Ok(_) => action.apply(&mut self.projects),
-        Err(_) => Err(()),
-      };
+    let entry = self.projects.entry(ProjectKey::new(name));
+    match entry {
+      Entry::Vacant(_) => Self::apply_action(&mut self.storage, entry, Action::ProjectAdd { name }),
+      Entry::Occupied(_) => Err(()),
     }
-    Err(())
+  }
+
+  pub fn remove_project(&mut self, name: &str) -> Result<(), ()> {
+    let entry = self.projects.entry(ProjectKey::new(name));
+    match entry {
+      Entry::Occupied(_) => {
+        Self::apply_action(&mut self.storage, entry, Action::ProjectDel { name })
+      }
+      Entry::Vacant(_) => Err(()),
+    }
   }
 
   pub fn clear(&mut self) {
     self.projects.clear();
+  }
+
+  fn apply_action(
+    storage: &mut FsStorage,
+    entry: Entry<ProjectKey, Project>,
+    action: Action,
+  ) -> Result<(), ()> {
+    return match storage.record_action(action) {
+      Ok(action) => action.apply(entry),
+      Err(_) => Err(()),
+    };
   }
 }
 
