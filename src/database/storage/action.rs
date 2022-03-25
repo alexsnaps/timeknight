@@ -18,14 +18,14 @@ use crate::core::Project;
 use crate::database::database::ProjectKey;
 use std::collections::btree_map::Entry;
 
-pub enum Action<'a> {
-  ProjectAdd { name: &'a str },
-  ProjectDel { name: &'a str },
+pub enum Action {
+  ProjectAdd { name: String },
+  ProjectDel { name: String },
 }
 
-impl<'a> Action<'a> {
+impl Action {
   pub fn apply(&self, entry: Entry<ProjectKey, Project>) -> Result<(), ()> {
-    match *self {
+    match self {
       Action::ProjectAdd { name } => match entry {
         Entry::Vacant(e) => {
           e.insert(Project::new(name.to_string()));
@@ -40,6 +40,34 @@ impl<'a> Action<'a> {
         }
         Entry::Vacant(_) => Err(()),
       },
+    }
+  }
+
+  pub fn id(&self) -> u8 {
+    match self {
+      Action::ProjectAdd { .. } => 127 as u8,
+      Action::ProjectDel { .. } => 126 as u8,
+    }
+  }
+
+  pub fn data(&self) -> &[u8] {
+    match self {
+      Action::ProjectAdd { name } => name.as_bytes(),
+      Action::ProjectDel { name } => name.as_bytes(),
+    }
+  }
+
+  pub fn from_bytes(data: &[u8]) -> Result<(ProjectKey, Action), ()> {
+    match data[0] {
+      127 => {
+        let name = String::from_utf8_lossy(&data[1..]).to_string();
+        Ok((ProjectKey::new(&name), Action::ProjectAdd { name }))
+      }
+      126 => {
+        let name = String::from_utf8_lossy(&data[1..]).to_string();
+        Ok((ProjectKey::new(&name), Action::ProjectDel { name }))
+      }
+      _ => Err(()),
     }
   }
 }

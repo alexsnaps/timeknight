@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
+use crate::database::database::ProjectKey;
 use crate::database::storage::Action;
-use std::fs::{remove_file, OpenOptions};
+use std::fs::{remove_file, File, OpenOptions};
 use std::io;
-use std::io::ErrorKind;
+use std::io::{BufRead, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 
 pub struct FsStorage {
   location: PathBuf,
+  wal: File,
 }
 
 const LOCK_FILE: &str = ".lock";
+
+const WAL: &'static str = "entries.wal";
 
 impl FsStorage {
   pub fn new(location: &Path) -> Result<Self, ErrorKind> {
@@ -39,15 +43,42 @@ impl FsStorage {
       .create_new(true)
       .open(lock_location)
     {
-      Ok(_) => Ok(FsStorage {
-        location: location.to_path_buf(),
-      }),
+      Ok(_) => match OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(location.join(WAL))
+      {
+        Ok(wal) => Ok(FsStorage {
+          location: location.to_path_buf(),
+          wal,
+        }),
+        Err(err) => Err(err.kind()),
+      },
       Err(err) => Err(err.kind()),
     }
   }
 
-  pub fn record_action<'a>(&mut self, action: Action<'a>) -> Result<Action<'a>, ()> {
-    Ok(action)
+  pub fn record_action<'a>(&mut self, action: Action) -> Result<Action, ()> {
+    let mut buffer = vec![];
+    buffer.push(action.id());
+    let data = action.data();
+    buffer.extend_from_slice(data);
+    buffer.push(b'\n');
+    match self.wal.write(&buffer) {
+      Ok(_) => Ok(action),
+      Err(_) => Err(()),
+    }
+  }
+
+  pub fn replay_actions(&self) -> impl Iterator<Item = (ProjectKey, Action)> + '_ {
+    io::BufReader::new(File::open(self.location.join(WAL)).unwrap())
+      .lines()
+      .map(|line| {
+        let data = line.unwrap().into_bytes();
+        Action::from_bytes(&data).unwrap()
+      })
+      .into_iter()
   }
 
   fn lock_file(location: &Path) -> PathBuf {

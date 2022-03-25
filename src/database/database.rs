@@ -25,15 +25,16 @@ use std::path::Path;
 pub struct Database {
   storage: FsStorage,
   projects: BTreeMap<ProjectKey, Project>,
+  last_project: Option<ProjectKey>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ProjectKey {
   key: String,
 }
 
 impl ProjectKey {
-  fn new(key: &str) -> Self {
+  pub(crate) fn new(key: &str) -> Self {
     ProjectKey {
       key: key.to_lowercase(),
     }
@@ -47,6 +48,7 @@ impl Database {
         let database = Database {
           storage,
           projects: BTreeMap::new(),
+          last_project: None,
         };
         match load_all(database) {
           Ok(database) => Ok(database),
@@ -60,7 +62,13 @@ impl Database {
   pub fn add_project(&mut self, name: &str) -> Result<(), ()> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
-      Entry::Vacant(_) => Self::apply_action(&mut self.storage, entry, Action::ProjectAdd { name }),
+      Entry::Vacant(_) => Self::apply_action(
+        &mut self.storage,
+        entry,
+        Action::ProjectAdd {
+          name: name.to_string(),
+        },
+      ),
       Entry::Occupied(_) => Err(()),
     }
   }
@@ -68,9 +76,13 @@ impl Database {
   pub fn remove_project(&mut self, name: &str) -> Result<(), ()> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
-      Entry::Occupied(_) => {
-        Self::apply_action(&mut self.storage, entry, Action::ProjectDel { name })
-      }
+      Entry::Occupied(_) => Self::apply_action(
+        &mut self.storage,
+        entry,
+        Action::ProjectDel {
+          name: name.to_string(),
+        },
+      ),
       Entry::Vacant(_) => Err(()),
     }
   }
@@ -92,6 +104,11 @@ impl Database {
 }
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
-  database.clear();
+  for (key, action) in database.storage.replay_actions() {
+    action
+      .apply(database.projects.entry(key.clone()))
+      .expect("Something is off with our WAL!");
+    database.last_project = Some(key);
+  }
   Ok(database)
 }
