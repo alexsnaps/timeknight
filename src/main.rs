@@ -58,16 +58,16 @@ fn main() {
     Err(err) => match err {
       ErrorKind::InvalidInput => {
         eprintln!(
-          "{} Location {:?} doesn't appear to be a directory!",
+          "{} Location {} doesn't appear to be a directory!",
           Colour::Red.bold().paint("FAIL"),
-          location,
+          location.display(),
         )
       }
       _ => {
         eprintln!(
-          "{} Couldn't access storage: {:?}",
+          "{} Couldn't access storage: {}",
           Colour::Red.bold().paint("FAIL"),
-          location,
+          location.display(),
         )
       }
     },
