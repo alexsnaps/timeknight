@@ -81,6 +81,11 @@ impl FsStorage {
       .into_iter()
   }
 
+  #[cfg(test)]
+  pub fn delete(&mut self) {
+    remove_file(self.location.join(WAL));
+  }
+
   fn lock_file(location: &Path) -> PathBuf {
     location.join(LOCK_FILE)
   }
@@ -105,7 +110,7 @@ impl Drop for FsStorage {
 mod tests {
   use crate::database::storage::fs::FsStorage;
   use std::env;
-  use std::fs::{create_dir, remove_dir};
+  use std::fs::{create_dir, remove_dir, remove_file};
   use std::io::ErrorKind;
   use std::io::ErrorKind::InvalidInput;
   use std::path::Path;
@@ -123,11 +128,13 @@ mod tests {
     let location = env::temp_dir().join("timeknightTest_succeeds_on_proper_dir");
     create_dir(location.as_path()).expect("failed to create temp directory");
     {
-      let _working_storage = FsStorage::new(location.as_path()).expect("Failed creating Storage");
+      let mut working_storage =
+        FsStorage::new(location.as_path()).expect("Failed creating Storage");
       assert_eq!(
         FsStorage::new(location.as_path()).err(),
         Some(ErrorKind::AlreadyExists)
       );
+      working_storage.delete();
     }
     remove_dir(location.as_path()).expect("couldn't cleanup our test directory!")
   }
