@@ -28,7 +28,7 @@ pub struct Database {
   last_project: Option<ProjectKey>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct ProjectKey {
   key: String,
 }
@@ -108,6 +108,7 @@ impl Database {
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
   for (key, action) in database.storage.replay_actions() {
+    let key = key.expect("We need a key here!");
     action
       .apply(database.projects.entry(key.clone()))
       .expect("Something is off with our WAL!");

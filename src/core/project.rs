@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use chrono::{DateTime, FixedOffset};
 use std::cmp::Ordering;
 use std::slice::Iter;
 
-use crate::core::record::{IllegalStateError, RecordEnded};
+use crate::core::record::{IllegalStateError, RResult, RecordEnded};
 use crate::core::Record;
 
 type AdditionResult = Result<RecordAdded, IllegalStateError>;
@@ -78,6 +79,10 @@ impl Project {
         Err(err) => Err(err),
       },
     }
+  }
+
+  pub fn end_at(&mut self, end: DateTime<FixedOffset>) -> RResult {
+    self.records.last_mut().unwrap().crop(end)
   }
 }
 

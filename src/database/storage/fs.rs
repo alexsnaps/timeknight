@@ -59,18 +59,17 @@ impl FsStorage {
   }
 
   pub fn record_action<'a>(&mut self, action: Action) -> Result<Action, ()> {
-    let mut buffer = vec![];
-    buffer.push(action.id());
-    let data = action.data();
-    buffer.extend_from_slice(data);
-    buffer.push(b'\n');
-    match self.wal.write(&buffer) {
-      Ok(_) => Ok(action),
+    let buffer: Vec<u8> = (&action).into();
+    match self.wal.write_all(&buffer) {
+      Ok(_) => match self.wal.flush() {
+        Ok(_) => Ok(action),
+        Err(_) => Err(()),
+      },
       Err(_) => Err(()),
     }
   }
 
-  pub fn replay_actions(&self) -> impl Iterator<Item = (ProjectKey, Action)> + '_ {
+  pub fn replay_actions(&self) -> impl Iterator<Item = (Option<ProjectKey>, Action)> + '_ {
     io::BufReader::new(File::open(self.location.join(WAL_FILE)).unwrap())
       .lines()
       .map(|line| {

@@ -110,6 +110,7 @@ impl Default for Record {
 mod tests {
   use crate::core::record::Record;
 
+  use chrono::{DateTime, FixedOffset, TimeZone, Utc};
   use std::ops::Sub;
   use std::time::Duration;
 
@@ -148,5 +149,18 @@ mod tests {
     assert_eq!(record.duration(), Duration::ZERO);
     assert!(record.is_billable());
     assert!(record.is_on_going());
+  }
+
+  #[test]
+  fn deconstruct() {
+    let now = Record::now();
+    let ts = now.timestamp_millis();
+    let tz = now.offset().utc_minus_local();
+    let utc = Utc.timestamp_millis(ts);
+    let offset = FixedOffset::from_offset(&FixedOffset::west(tz));
+    let other: DateTime<FixedOffset> = utc.with_timezone(&offset);
+    println!("{} == {}", now.to_rfc3339(), other.to_rfc3339());
+    assert_eq!(now.timezone(), other.timezone());
+    assert_eq!(ts, other.timestamp_millis());
   }
 }
