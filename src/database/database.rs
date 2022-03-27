@@ -87,6 +87,12 @@ impl Database {
     }
   }
 
+  pub fn list_projects(&self) -> Vec<&Project> {
+    let mut projects = self.projects.values().collect::<Vec<&Project>>();
+    projects.sort_by(|a, b| a.name().to_lowercase().cmp(&b.name().to_lowercase()));
+    projects
+  }
+
   pub fn current_project(&self) -> Option<&Project> {
     match &self.last_project {
       Some(key) => self.projects.get(key),

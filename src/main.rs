@@ -37,8 +37,18 @@ fn main() {
     .version(VERSION)
     .subcommand(
       App::new("project")
-        .about("Creates a project")
-        .arg(arg!(<NAME> "The project name to create"))
+        .about("Project management")
+        .subcommand(
+          App::new("add")
+            .arg(arg!(<NAME> "The project name to create"))
+            .setting(AppSettings::ArgRequiredElseHelp),
+        )
+        .subcommand(
+          App::new("del")
+            .arg(arg!(<NAME> "The project name to delete"))
+            .setting(AppSettings::ArgRequiredElseHelp),
+        )
+        .subcommand(App::new("list"))
         .setting(AppSettings::ArgRequiredElseHelp),
     )
     .subcommand(
@@ -76,25 +86,57 @@ fn main() {
 
 fn handle_command(matches: ArgMatches, database: &mut Database) {
   match matches.subcommand() {
-    Some(("project", sub_matches)) => {
-      let project = sub_matches.value_of("NAME").expect("required");
-      match database.add_project(project) {
-        Ok(()) => {
-          println!(
-            "{} project '{}'",
-            Colour::Green.bold().paint("Created"),
-            project,
-          );
-        }
-        Err(()) => {
-          println!(
-            "{} to create project '{}'",
-            Colour::Red.bold().paint("Failed"),
-            project,
-          );
+    Some(("project", sub_matches)) => match sub_matches.subcommand() {
+      Some(("add", sub_matches)) => {
+        let project = sub_matches.value_of("NAME").expect("required");
+        match database.add_project(project) {
+          Ok(()) => {
+            println!(
+              "{} project '{}'",
+              Colour::Green.bold().paint("Created"),
+              project,
+            );
+          }
+          Err(()) => {
+            println!(
+              "{} to create project '{}'",
+              Colour::Red.bold().paint("Failed"),
+              project,
+            );
+          }
         }
       }
-    }
+      Some(("del", sub_matches)) => {
+        let project = sub_matches.value_of("NAME").expect("required");
+        match database.remove_project(project) {
+          Ok(()) => {
+            println!(
+              "{} project '{}'",
+              Colour::Green.bold().paint("Deleted"),
+              project,
+            );
+          }
+          Err(()) => {
+            println!(
+              "{} to delete project '{}'",
+              Colour::Red.bold().paint("Failed"),
+              project,
+            );
+          }
+        }
+      }
+      Some(("list", _)) => {
+        let projects = database.list_projects();
+        if projects.is_empty() {
+          println!(
+            "{} use 'add' to create one",
+            Colour::Yellow.bold().paint("No projects"),
+          );
+        }
+        projects.iter().for_each(|p| println!("{}", p.name()));
+      }
+      _ => unreachable!("clap should ensure we don't get here"),
+    },
     Some(("start", sub_matches)) => {
       println!(
         "{} tracking time on '{}'",
