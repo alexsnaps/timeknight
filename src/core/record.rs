@@ -72,8 +72,8 @@ impl Record {
   pub fn crop(&mut self, new_end: DateTime<FixedOffset>) -> RResult {
     match self.start.cmp(&new_end) {
       Ordering::Greater => Err(IllegalStateError::NegativeDuration),
-      Ordering::Less => Err(IllegalStateError::NoDuration),
-      Ordering::Equal => match self.end {
+      Ordering::Equal => Err(IllegalStateError::NoDuration),
+      Ordering::Less => match self.end {
         None => {
           self.end = Some(new_end);
           Ok(RecordEnded::Ended)

@@ -18,7 +18,7 @@ use crate::database::database::ProjectKey;
 use crate::database::storage::Action;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io;
-use std::io::{BufRead, ErrorKind, Write};
+use std::io::{BufRead, ErrorKind, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 pub struct FsStorage {
@@ -43,6 +43,7 @@ impl FsStorage {
       .open(lock_location)
     {
       Ok(_) => match OpenOptions::new()
+        .read(true)
         .write(true)
         .create(true)
         .append(true)
@@ -69,14 +70,8 @@ impl FsStorage {
     }
   }
 
-  pub fn replay_actions(&self) -> impl Iterator<Item = (Option<ProjectKey>, Action)> + '_ {
-    io::BufReader::new(File::open(self.location.join(WAL_FILE)).unwrap())
-      .lines()
-      .map(|line| {
-        let data = line.unwrap().into_bytes();
-        Action::from_bytes(&data).unwrap()
-      })
-      .into_iter()
+  pub fn replay_actions(&mut self) -> impl Iterator<Item = (Option<ProjectKey>, Action)> + '_ {
+    ReplayLog::new(&mut self.wal)
   }
 
   #[cfg(test)]
@@ -104,6 +99,36 @@ impl Drop for FsStorage {
         "Failed to remove lock file: {:?}!",
         Self::lock_file(self.location.as_path())
       )
+    }
+  }
+}
+
+struct ReplayLog<'a> {
+  reader: io::BufReader<&'a mut File>,
+  buffer: Vec<u8>,
+}
+
+impl<'a> ReplayLog<'a> {
+  fn new(wal: &'a mut File) -> Self {
+    wal.seek(SeekFrom::Start(0)).expect("Couldn't rewind WAL");
+    ReplayLog {
+      reader: io::BufReader::new(wal),
+      buffer: Vec::with_capacity(1024),
+    }
+  }
+}
+
+impl<'a> Iterator for ReplayLog<'a> {
+  type Item = (Option<ProjectKey>, Action);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    self.buffer.clear();
+    match self.reader.read_until(b'\n', &mut self.buffer) {
+      Err(_) | Ok(0) => None,
+      Ok(size) => {
+        let data = self.buffer.as_slice();
+        Some(Action::from_bytes(&data[..size - 1]).unwrap())
+      }
     }
   }
 }

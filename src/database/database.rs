@@ -17,6 +17,7 @@
 use crate::core::Project;
 use crate::database::storage::Action;
 use crate::database::storage::FsStorage;
+use chrono::Local;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::ErrorKind;
@@ -100,6 +101,43 @@ impl Database {
     }
   }
 
+  pub fn start_on(&mut self, name: &str) -> Result<(), ()> {
+    let entry = self.projects.entry(ProjectKey::new(name));
+    let now = Local::now();
+    match entry {
+      Entry::Occupied(_) => Self::apply_action(
+        &mut self.storage,
+        entry,
+        Action::RecordStart {
+          name: name.to_string(),
+          ts: now.timestamp(),
+          tz: now.offset().utc_minus_local(),
+        },
+      ),
+      Entry::Vacant(_) => Err(()),
+    }
+  }
+
+  pub fn stop(&mut self) -> Result<(), ()> {
+    if self.current_project().is_none() {
+      return Err(());
+    }
+    let key = self.last_project.as_ref().unwrap();
+    let entry = self.projects.entry(key.clone());
+    let now = Local::now();
+    match entry {
+      Entry::Occupied(_) => Self::apply_action(
+        &mut self.storage,
+        entry,
+        Action::RecordStop {
+          ts: now.timestamp(),
+          tz: now.offset().utc_minus_local(),
+        },
+      ),
+      Entry::Vacant(_) => Err(()),
+    }
+  }
+
   fn apply_action(
     storage: &mut FsStorage,
     entry: Entry<ProjectKey, Project>,
@@ -114,7 +152,10 @@ impl Database {
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
   for (key, action) in database.storage.replay_actions() {
-    let key = key.expect("We need a key here!");
+    let key = match key {
+      None => database.last_project.expect("We need a key here!"),
+      Some(project) => project,
+    };
     action
       .apply(database.projects.entry(key.clone()))
       .expect("Something is off with our WAL!");

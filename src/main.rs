@@ -58,6 +58,7 @@ fn main() {
         .setting(AppSettings::ArgRequiredElseHelp),
     )
     .subcommand(App::new("stop").about("Stops tracking time"))
+    .subcommand(App::new("status").about("Displays current status"))
     .get_matches();
 
   let location = db_location();
@@ -138,18 +139,54 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       _ => unreachable!("clap should ensure we don't get here"),
     },
     Some(("start", sub_matches)) => {
-      println!(
-        "{} tracking time on '{}'",
-        Colour::Green.bold().paint("Started"),
-        sub_matches.value_of("NAME").expect("required"),
-      );
+      let name = sub_matches.value_of("NAME").expect("required");
+      match database.start_on(name) {
+        Ok(_) => {
+          println!(
+            "{} tracking time on '{}'",
+            Colour::Green.bold().paint("Started"),
+            name,
+          );
+        }
+        Err(_) => {}
+      }
     }
-    Some(("stop", _sub_matches)) => {
-      println!(
-        "{} to be stopped",
-        Colour::Yellow.bold().paint("No tracked project"),
-      );
-    }
+    Some(("stop", _sub_matches)) => match database.stop() {
+      Ok(_) => {
+        println!(
+          "{} tracking on {}",
+          Colour::Green.bold().paint("Stopped"),
+          database.current_project().unwrap().name(),
+        );
+      }
+      Err(_) => {
+        println!(
+          "{} to be stopped",
+          Colour::Yellow.bold().paint("No tracked project"),
+        );
+      }
+    },
+    Some(("status", _sub_matches)) => match database.current_project() {
+      None => println!("Nothing going on!"),
+      Some(project) => match project.records().last() {
+        None => println!("Last created project: {}", project.name()),
+        Some(r) => {
+          if r.is_on_going() {
+            println!(
+              "Working on {} since {}",
+              project.name(),
+              r.start().to_rfc3339()
+            );
+          } else {
+            println!(
+              "Last worked on {} for {} minutes",
+              project.name(),
+              r.duration().as_secs() / 60
+            );
+          }
+        }
+      },
+    },
     _ => unreachable!("clap should ensure we don't get here"),
   }
 }

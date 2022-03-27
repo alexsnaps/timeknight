@@ -19,6 +19,7 @@ use crate::database::database::ProjectKey;
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use std::collections::btree_map::Entry;
 
+#[derive(Debug)]
 pub enum Action {
   ProjectAdd { name: String },
   ProjectDel { name: String },
@@ -45,7 +46,7 @@ impl Action {
       },
       Action::RecordStart { name: _, ts, tz } => match entry {
         Entry::Occupied(mut e) => {
-          let utc = Utc.timestamp_millis(*ts);
+          let utc = Utc.timestamp(*ts, 0);
           let offset = FixedOffset::from_offset(&FixedOffset::west(*tz));
           let start: DateTime<FixedOffset> = utc.with_timezone(&offset);
           e.get_mut()
@@ -57,7 +58,7 @@ impl Action {
       },
       Action::RecordStop { ts, tz } => match entry {
         Entry::Occupied(mut e) => {
-          let utc = Utc.timestamp_millis(*ts);
+          let utc = Utc.timestamp(*ts, 0);
           let offset = FixedOffset::from_offset(&FixedOffset::west(*tz));
           let end: DateTime<FixedOffset> = utc.with_timezone(&offset);
           e.get_mut().end_at(end).expect("Replay end failed");
@@ -142,28 +143,30 @@ impl Into<Vec<u8>> for &Action {
 mod tests {
   use crate::database::database::ProjectKey;
   use crate::database::storage::Action;
+  use chrono::DateTime;
 
   #[test]
   fn record_start_serializes_alright() {
+    let time = DateTime::parse_from_rfc3339("2022-03-27T17:37:34.727018-04:00").unwrap();
     let record_start = Action::RecordStart {
       name: "ourName".to_string(),
-      ts: 321456789,
-      tz: -123456,
+      ts: time.timestamp(),
+      tz: time.offset().utc_minus_local(),
     };
     let buffer: Vec<u8> = (&record_start).into();
     assert_eq!(21, buffer.len());
     assert_eq!(21, buffer.capacity());
     assert_eq!(
-      [125, 149, 10, 41, 19, 0, 0, 0, 0, 192, 29, 254, 255, 111, 117, 114, 78, 97, 109, 101, 10],
-      buffer.as_slice()
+      buffer.as_slice(),
+      [125, 30, 217, 64, 98, 0, 0, 0, 0, 64, 56, 0, 0, 111, 117, 114, 78, 97, 109, 101, 10],
     );
     let (key, action) = Action::from_bytes(&buffer[..buffer.len() - 1]).unwrap();
     assert_eq!(key, Some(ProjectKey::new("OURNAME")));
     match action {
       Action::RecordStart { name, ts, tz } => {
         assert_eq!(name, "ourName");
-        assert_eq!(ts, 321456789);
-        assert_eq!(tz, -123456);
+        assert_eq!(ts, 1648417054);
+        assert_eq!(tz, 14400);
       }
       _ => assert!(false),
     }
