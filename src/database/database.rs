@@ -102,19 +102,24 @@ impl Database {
   }
 
   pub fn start_on(&mut self, name: &str) -> Result<(), ()> {
-    let entry = self.projects.entry(ProjectKey::new(name));
-    let now = Local::now();
-    match entry {
-      Entry::Occupied(_) => Self::apply_action(
-        &mut self.storage,
-        entry,
-        Action::RecordStart {
-          name: name.to_string(),
-          ts: now.timestamp(),
-          tz: now.offset().utc_minus_local(),
-        },
-      ),
-      Entry::Vacant(_) => Err(()),
+    match self.silent_stop() {
+      Ok(_) => {
+        let entry = self.projects.entry(ProjectKey::new(name));
+        let now = Local::now();
+        match entry {
+          Entry::Occupied(_) => Self::apply_action(
+            &mut self.storage,
+            entry,
+            Action::RecordStart {
+              name: name.to_string(),
+              ts: now.timestamp(),
+              tz: now.offset().utc_minus_local(),
+            },
+          ),
+          Entry::Vacant(_) => Err(()),
+        }
+      }
+      Err(_) => Err(()),
     }
   }
 
@@ -122,6 +127,10 @@ impl Database {
     if self.current_project().is_none() {
       return Err(());
     }
+    self.silent_stop()
+  }
+
+  fn silent_stop(&mut self) -> Result<(), ()> {
     let key = self.last_project.as_ref().unwrap();
     let entry = self.projects.entry(key.clone());
     let now = Local::now();
