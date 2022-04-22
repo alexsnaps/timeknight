@@ -98,9 +98,9 @@ impl Action {
   }
 }
 
-impl Into<Vec<u8>> for &Action {
-  fn into(self) -> Vec<u8> {
-    match self {
+impl From<&Action> for Vec<u8> {
+  fn from(action: &Action) -> Self {
+    match action {
       Action::ProjectAdd { name } => {
         let raw = name.as_bytes();
         let mut buffer = Vec::with_capacity(raw.len() + 2);

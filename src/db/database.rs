@@ -90,7 +90,7 @@ impl Database {
 
   pub fn list_projects(&self) -> Vec<&Project> {
     let mut projects = self.projects.values().collect::<Vec<&Project>>();
-    projects.sort_by(|a, b| a.name().to_lowercase().cmp(&b.name().to_lowercase()));
+    projects.sort_by_key(|a| a.name().to_lowercase());
     projects
   }
 
@@ -152,10 +152,10 @@ impl Database {
     entry: Entry<ProjectKey, Project>,
     action: Action,
   ) -> Result<(), ()> {
-    return match storage.record_action(action) {
+    match storage.record_action(action) {
       Ok(action) => action.apply(entry),
       Err(_) => Err(()),
-    };
+    }
   }
 }
 

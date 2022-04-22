@@ -24,7 +24,7 @@ use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -140,15 +140,12 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
     },
     Some(("start", sub_matches)) => {
       let name = sub_matches.value_of("NAME").expect("required");
-      match database.start_on(name) {
-        Ok(_) => {
-          println!(
-            "{} tracking time on '{}'",
-            Colour::Green.bold().paint("Started"),
-            name,
-          );
-        }
-        Err(_) => {}
+      if database.start_on(name).is_ok() {
+        println!(
+          "{} tracking time on '{}'",
+          Colour::Green.bold().paint("Started"),
+          name,
+        );
       }
     }
     Some(("stop", _sub_matches)) => match database.stop() {
@@ -213,7 +210,7 @@ fn db_location() -> PathBuf {
     .join(DEFAULT_DIRECTORY)
 }
 
-fn init_if_needed(location: &PathBuf) {
+fn init_if_needed(location: &Path) {
   if !location.exists() {
     println!(
       "{} Looks like the environment wasn't ever set up...",
@@ -224,7 +221,7 @@ fn init_if_needed(location: &PathBuf) {
       location.to_str().unwrap()
     );
     match Term::stdout().read_char() {
-      Ok('y') | Ok('Y') => match fs::create_dir(location.as_path()) {
+      Ok('y') | Ok('Y') => match fs::create_dir(location) {
         Ok(_) => {
           println!(
             "{} db... {}",

@@ -59,7 +59,7 @@ impl FsStorage {
     }
   }
 
-  pub fn record_action<'a>(&mut self, action: Action) -> Result<Action, ()> {
+  pub fn record_action(&mut self, action: Action) -> Result<Action, ()> {
     let buffer: Vec<u8> = (&action).into();
     match self.wal.write_all(&buffer) {
       Ok(_) => match self.wal.flush() {
