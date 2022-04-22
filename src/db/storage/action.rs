@@ -15,7 +15,7 @@
  */
 
 use crate::core::{Project, Record};
-use crate::database::database::ProjectKey;
+use crate::db::database::ProjectKey;
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use std::collections::btree_map::Entry;
 
@@ -141,8 +141,8 @@ impl Into<Vec<u8>> for &Action {
 
 #[cfg(test)]
 mod tests {
-  use crate::database::database::ProjectKey;
-  use crate::database::storage::Action;
+  use crate::db::database::ProjectKey;
+  use crate::db::storage::Action;
   use chrono::DateTime;
 
   #[test]

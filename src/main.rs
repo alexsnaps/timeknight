@@ -15,9 +15,9 @@
  */
 
 pub mod core;
-pub mod database;
+pub mod db;
 
-use database::Database;
+use db::Database;
 use std::fs;
 
 use ansi_term::Colour;
@@ -227,14 +227,14 @@ fn init_if_needed(location: &PathBuf) {
       Ok('y') | Ok('Y') => match fs::create_dir(location.as_path()) {
         Ok(_) => {
           println!(
-            "{} database... {}",
+            "{} db... {}",
             Colour::Green.bold().paint("Initializing"),
             Colour::Green.paint("Done!"),
           );
         }
         Err(err) => {
           eprintln!(
-            "{} initializing database: {}",
+            "{} initializing db: {}",
             Colour::Red.bold().paint("Error"),
             Colour::Red.paint(format!("{}", err)),
           );

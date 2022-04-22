@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use crate::database::database::ProjectKey;
-use crate::database::storage::Action;
+use crate::db::database::ProjectKey;
+use crate::db::storage::Action;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io;
 use std::io::{BufRead, ErrorKind, Seek, SeekFrom, Write};
@@ -78,7 +78,7 @@ impl FsStorage {
   pub fn delete(&mut self) {
     let path = self.location.join(WAL_FILE);
     remove_file(path.clone()).expect(&format!(
-      "Couldn't delete our database at {}",
+      "Couldn't delete our db at {}",
       path.display()
     ));
   }
@@ -135,7 +135,7 @@ impl<'a> Iterator for ReplayLog<'a> {
 
 #[cfg(test)]
 mod tests {
-  use crate::database::storage::fs::FsStorage;
+  use crate::db::storage::fs::FsStorage;
   use std::env;
   use std::fs::{create_dir, remove_dir};
   use std::io::ErrorKind;

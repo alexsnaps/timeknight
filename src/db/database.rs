@@ -15,8 +15,8 @@
  */
 
 use crate::core::Project;
-use crate::database::storage::Action;
-use crate::database::storage::FsStorage;
+use crate::db::storage::Action;
+use crate::db::storage::FsStorage;
 use chrono::Local;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
