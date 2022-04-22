@@ -20,8 +20,20 @@ use crate::db::storage::FsStorage;
 use chrono::Local;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::fmt::{Display, Formatter};
 use std::io::ErrorKind;
 use std::path::Path;
+
+#[derive(Debug)]
+pub struct SomeDbError;
+
+impl Display for SomeDbError {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Some error to be clearly identified at some point!")
+  }
+}
+
+impl std::error::Error for SomeDbError { }
 
 pub struct Database {
   storage: FsStorage,
@@ -60,7 +72,7 @@ impl Database {
     }
   }
 
-  pub fn add_project(&mut self, name: &str) -> Result<(), ()> {
+  pub fn add_project(&mut self, name: &str) -> Result<(), SomeDbError> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
       Entry::Vacant(_) => Self::apply_action(
@@ -70,11 +82,11 @@ impl Database {
           name: name.to_string(),
         },
       ),
-      Entry::Occupied(_) => Err(()),
+      Entry::Occupied(_) => Err(SomeDbError),
     }
   }
 
-  pub fn remove_project(&mut self, name: &str) -> Result<(), ()> {
+  pub fn remove_project(&mut self, name: &str) -> Result<(), SomeDbError> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
       Entry::Occupied(_) => Self::apply_action(
@@ -84,7 +96,7 @@ impl Database {
           name: name.to_string(),
         },
       ),
-      Entry::Vacant(_) => Err(()),
+      Entry::Vacant(_) => Err(SomeDbError),
     }
   }
 
@@ -101,7 +113,7 @@ impl Database {
     }
   }
 
-  pub fn start_on(&mut self, name: &str) -> Result<(), ()> {
+  pub fn start_on(&mut self, name: &str) -> Result<(), SomeDbError> {
     match self.silent_stop() {
       Ok(_) => {
         let entry = self.projects.entry(ProjectKey::new(name));
@@ -116,21 +128,21 @@ impl Database {
               tz: now.offset().utc_minus_local(),
             },
           ),
-          Entry::Vacant(_) => Err(()),
+          Entry::Vacant(_) => Err(SomeDbError),
         }
       }
-      Err(_) => Err(()),
+      Err(_) => Err(SomeDbError),
     }
   }
 
-  pub fn stop(&mut self) -> Result<(), ()> {
+  pub fn stop(&mut self) -> Result<(), SomeDbError> {
     if self.current_project().is_none() {
-      return Err(());
+      return Err(SomeDbError);
     }
     self.silent_stop()
   }
 
-  fn silent_stop(&mut self) -> Result<(), ()> {
+  fn silent_stop(&mut self) -> Result<(), SomeDbError> {
     let key = self.last_project.as_ref().unwrap();
     let entry = self.projects.entry(key.clone());
     let now = Local::now();
@@ -143,7 +155,7 @@ impl Database {
           tz: now.offset().utc_minus_local(),
         },
       ),
-      Entry::Vacant(_) => Err(()),
+      Entry::Vacant(_) => Err(SomeDbError),
     }
   }
 
@@ -151,10 +163,10 @@ impl Database {
     storage: &mut FsStorage,
     entry: Entry<ProjectKey, Project>,
     action: Action,
-  ) -> Result<(), ()> {
+  ) -> Result<(), SomeDbError> {
     match storage.record_action(action) {
       Ok(action) => action.apply(entry),
-      Err(_) => Err(()),
+      Err(_) => Err(SomeDbError),
     }
   }
 }

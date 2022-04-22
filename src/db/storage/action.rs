@@ -15,7 +15,7 @@
  */
 
 use crate::core::{Project, Record};
-use crate::db::database::ProjectKey;
+use crate::db::database::{ProjectKey, SomeDbError};
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use std::collections::btree_map::Entry;
 
@@ -28,21 +28,21 @@ pub enum Action {
 }
 
 impl Action {
-  pub fn apply(&self, entry: Entry<ProjectKey, Project>) -> Result<(), ()> {
+  pub fn apply(&self, entry: Entry<ProjectKey, Project>) -> Result<(), SomeDbError> {
     match self {
       Action::ProjectAdd { name } => match entry {
         Entry::Vacant(e) => {
           e.insert(Project::new(name.to_string()));
           Ok(())
         }
-        Entry::Occupied(_) => Err(()),
+        Entry::Occupied(_) => Err(SomeDbError),
       },
       Action::ProjectDel { name: _ } => match entry {
         Entry::Occupied(e) => {
           e.remove();
           Ok(())
         }
-        Entry::Vacant(_) => Err(()),
+        Entry::Vacant(_) => Err(SomeDbError),
       },
       Action::RecordStart { name: _, ts, tz } => match entry {
         Entry::Occupied(mut e) => {
@@ -54,7 +54,7 @@ impl Action {
             .expect("Replay start failed");
           Ok(())
         }
-        Entry::Vacant(_) => Err(()),
+        Entry::Vacant(_) => Err(SomeDbError),
       },
       Action::RecordStop { ts, tz } => match entry {
         Entry::Occupied(mut e) => {
@@ -64,7 +64,7 @@ impl Action {
           e.get_mut().end_at(end).expect("Replay end failed");
           Ok(())
         }
-        Entry::Vacant(_) => Err(()),
+        Entry::Vacant(_) => Err(SomeDbError),
       },
     }
   }

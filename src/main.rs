@@ -98,7 +98,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
               project,
             );
           }
-          Err(()) => {
+          Err(_) => {
             println!(
               "{} to create project '{}'",
               Colour::Red.bold().paint("Failed"),
@@ -117,7 +117,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
               project,
             );
           }
-          Err(()) => {
+          Err(_) => {
             println!(
               "{} to delete project '{}'",
               Colour::Red.bold().paint("Failed"),
