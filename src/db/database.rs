@@ -33,7 +33,7 @@ impl Display for SomeDbError {
   }
 }
 
-impl std::error::Error for SomeDbError { }
+impl std::error::Error for SomeDbError {}
 
 pub struct Database {
   storage: FsStorage,

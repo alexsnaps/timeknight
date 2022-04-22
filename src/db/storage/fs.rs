@@ -77,10 +77,7 @@ impl FsStorage {
   #[cfg(test)]
   pub fn delete(&mut self) {
     let path = self.location.join(WAL_FILE);
-    remove_file(path.clone()).expect(&format!(
-      "Couldn't delete our db at {}",
-      path.display()
-    ));
+    remove_file(path.clone()).expect(&format!("Couldn't delete our db at {}", path.display()));
   }
 
   fn lock_file(location: &Path) -> PathBuf {
