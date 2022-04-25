@@ -82,7 +82,16 @@ impl Project {
   }
 
   pub fn end_at(&mut self, end: DateTime<FixedOffset>) -> RResult {
-    self.records.last_mut().unwrap().crop(end)
+    self.records.last_mut().expect("No record present!").crop(end)
+  }
+
+  pub fn in_flight(&self) -> bool {
+    match self.records.last() {
+      None => false,
+      Some(record) => {
+        record.is_on_going()
+      }
+    }
   }
 }
 

@@ -147,14 +147,20 @@ impl Database {
     let entry = self.projects.entry(key.clone());
     let now = Local::now();
     match entry {
-      Entry::Occupied(_) => Self::apply_action(
-        &mut self.storage,
-        entry,
-        Action::RecordStop {
-          ts: now.timestamp(),
-          tz: now.offset().utc_minus_local(),
-        },
-      ),
+      Entry::Occupied(e) => {
+        if e.get().in_flight() {
+          Self::apply_action(
+            &mut self.storage,
+            Entry::Occupied(e),
+            Action::RecordStop {
+              ts: now.timestamp(),
+              tz: now.offset().utc_minus_local(),
+            },
+          )
+        } else {
+          Ok(())
+        }
+      },
       Entry::Vacant(_) => Err(SomeDbError),
     }
   }
