@@ -160,7 +160,7 @@ impl Database {
         } else {
           Ok(())
         }
-      },
+      }
       Entry::Vacant(_) => Err(SomeDbError),
     }
   }
@@ -178,15 +178,19 @@ impl Database {
 }
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
-  for (key, action) in database.storage.replay_actions() {
-    let key = match key {
-      None => database.last_project.expect("We need a key here!"),
-      Some(project) => project,
+  for (o_key, action) in database.storage.replay_actions() {
+    let key = match o_key {
+      None => database.last_project.as_ref().expect("We need a key here!"),
+      Some(ref project) => project,
     };
     action
       .apply(database.projects.entry(key.clone()))
       .expect("Something is off with our WAL!");
-    database.last_project = Some(key);
+    if let Some(project) = database.projects.get(key) {
+      if project.in_flight() {
+        database.last_project = Some(o_key.unwrap());
+      }
+    }
   }
   Ok(database)
 }
