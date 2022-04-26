@@ -123,11 +123,12 @@ impl<'a> Iterator for ReplayLog<'a> {
   fn next(&mut self) -> Option<Self::Item> {
     self.buffer.clear();
     match self.reader.read_until(b'\n', &mut self.buffer) {
-      Err(_) | Ok(0) => None,
+      Ok(0) => None,
       Ok(size) => {
         let data = self.buffer.as_slice();
         Some(Action::from_bytes(&data[..size - 1]).unwrap())
       }
+      Err(e) => panic!("Failed reading wal log: {}", e),
     }
   }
 }
