@@ -62,7 +62,7 @@ impl Record {
   }
 
   pub fn duration(&self) -> Duration {
-    let end = self.end.or_else(|| Some(Record::now())).unwrap();
+    let end = self.end.unwrap_or_else(Record::now);
     let duration = end.signed_duration_since(self.start);
     if duration < chrono::Duration::zero() {
       return Duration::ZERO;

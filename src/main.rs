@@ -216,10 +216,7 @@ fn init_if_needed(location: &Path) {
       "{} Looks like the environment wasn't ever set up...",
       Colour::Purple.paint("Welcome!")
     );
-    println!(
-      "Should we initialize it in {} ?",
-      location.to_str().unwrap()
-    );
+    println!("Should we initialize it in {} ?", location.display());
     match Term::stdout().read_char() {
       Ok('y') | Ok('Y') => match fs::create_dir(location) {
         Ok(_) => {
