@@ -175,14 +175,12 @@ impl Database {
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
   for (key, action) in database.storage.replay_actions() {
-    let key = key.unwrap_or_else(|| database.last_project.expect("We need a key here!"));
+    let key = key.unwrap_or_else(|| database.last_project.take().expect("We need a key here!"));
     let project = action
       .apply(database.projects.entry(key))
       .expect("Something is off with our WAL!");
     if project.in_flight() {
       database.last_project = Some(ProjectKey::new(project.name()));
-    } else {
-      database.last_project = None;
     }
   }
   Ok(database)
