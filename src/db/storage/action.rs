@@ -17,6 +17,7 @@
 use crate::core::{Project, Record};
 use crate::db::database::{ProjectKey, SomeDbError};
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
+use std::borrow::Cow;
 use std::collections::btree_map::Entry;
 
 #[derive(Debug)]
@@ -28,20 +29,17 @@ pub enum Action {
 }
 
 impl Action {
-  pub fn apply(&self, entry: Entry<ProjectKey, Project>) -> Result<(), SomeDbError> {
+  pub fn apply<'a, 'b: 'a>(
+    &self,
+    entry: Entry<'b, ProjectKey, Project>,
+  ) -> Result<Cow<'a, Project>, SomeDbError> {
     match self {
       Action::ProjectAdd { name } => match entry {
-        Entry::Vacant(e) => {
-          e.insert(Project::new(name.to_string()));
-          Ok(())
-        }
+        Entry::Vacant(e) => Ok(Cow::Borrowed(e.insert(Project::new(name.to_string())))),
         Entry::Occupied(_) => Err(SomeDbError),
       },
       Action::ProjectDel { name: _ } => match entry {
-        Entry::Occupied(e) => {
-          e.remove();
-          Ok(())
-        }
+        Entry::Occupied(e) => Ok(Cow::Owned(e.remove())),
         Entry::Vacant(_) => Err(SomeDbError),
       },
       Action::RecordStart { name: _, ts, tz } => match entry {
@@ -52,7 +50,7 @@ impl Action {
           e.get_mut()
             .add_record(Record::started_on(start))
             .expect("Replay start failed");
-          Ok(())
+          Ok(Cow::Borrowed(e.into_mut()))
         }
         Entry::Vacant(_) => Err(SomeDbError),
       },
@@ -62,7 +60,7 @@ impl Action {
           let offset = FixedOffset::from_offset(&FixedOffset::west(*tz));
           let end: DateTime<FixedOffset> = utc.with_timezone(&offset);
           e.get_mut().end_at(end).expect("Replay end failed");
-          Ok(())
+          Ok(Cow::Borrowed(e.into_mut()))
         }
         Entry::Vacant(_) => Err(SomeDbError),
       },

@@ -30,6 +30,7 @@ pub enum RecordAdded {
   Cropped,
 }
 
+#[derive(Clone)]
 pub struct Project {
   name: String,
   records: Vec<Record>,

@@ -18,6 +18,7 @@ use crate::core::Project;
 use crate::db::storage::Action;
 use crate::db::storage::FsStorage;
 use chrono::Local;
+use std::borrow::Cow;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
@@ -72,7 +73,7 @@ impl Database {
     }
   }
 
-  pub fn add_project(&mut self, name: &str) -> Result<(), SomeDbError> {
+  pub fn add_project(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
       Entry::Vacant(_) => Self::apply_action(
@@ -86,7 +87,7 @@ impl Database {
     }
   }
 
-  pub fn remove_project(&mut self, name: &str) -> Result<(), SomeDbError> {
+  pub fn remove_project(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
     let entry = self.projects.entry(ProjectKey::new(name));
     match entry {
       Entry::Occupied(_) => Self::apply_action(
@@ -113,7 +114,7 @@ impl Database {
     }
   }
 
-  pub fn start_on(&mut self, name: &str) -> Result<(), SomeDbError> {
+  pub fn start_on(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
     match self.silent_stop() {
       Ok(_) => {
         let entry = self.projects.entry(ProjectKey::new(name));
@@ -135,14 +136,14 @@ impl Database {
     }
   }
 
-  pub fn stop(&mut self) -> Result<(), SomeDbError> {
+  pub fn stop(&mut self) -> Result<Cow<Project>, SomeDbError> {
     if self.current_project().is_none() {
       return Err(SomeDbError);
     }
     self.silent_stop()
   }
 
-  fn silent_stop(&mut self) -> Result<(), SomeDbError> {
+  fn silent_stop(&mut self) -> Result<Cow<Project>, SomeDbError> {
     let key = self.last_project.as_ref().unwrap();
     let entry = self.projects.entry(key.clone());
     let now = Local::now();
@@ -158,18 +159,18 @@ impl Database {
             },
           )
         } else {
-          Ok(())
+          Ok(Cow::Borrowed(e.into_mut()))
         }
       }
       Entry::Vacant(_) => Err(SomeDbError),
     }
   }
 
-  fn apply_action(
-    storage: &mut FsStorage,
-    entry: Entry<ProjectKey, Project>,
+  fn apply_action<'a>(
+    storage: &'a mut FsStorage,
+    entry: Entry<'a, ProjectKey, Project>,
     action: Action,
-  ) -> Result<(), SomeDbError> {
+  ) -> Result<Cow<'a, Project>, SomeDbError> {
     match storage.record_action(action) {
       Ok(action) => action.apply(entry),
       Err(_) => Err(SomeDbError),
@@ -183,13 +184,11 @@ fn load_all(mut database: Database) -> Result<Database, ()> {
       None => database.last_project.as_ref().expect("We need a key here!"),
       Some(ref project) => project,
     };
-    action
+    let project = action
       .apply(database.projects.entry(key.clone()))
       .expect("Something is off with our WAL!");
-    if let Some(project) = database.projects.get(key) {
-      if project.in_flight() {
-        database.last_project = Some(o_key.unwrap());
-      }
+    if project.in_flight() {
+      database.last_project = Some(o_key.unwrap());
     }
   }
   Ok(database)

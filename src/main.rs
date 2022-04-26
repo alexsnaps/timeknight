@@ -91,11 +91,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       Some(("add", sub_matches)) => {
         let project = sub_matches.value_of("NAME").expect("required");
         match database.add_project(project) {
-          Ok(()) => {
+          Ok(project) => {
             println!(
               "{} project '{}'",
               Colour::Green.bold().paint("Created"),
-              project,
+              project.name(),
             );
           }
           Err(_) => {
@@ -110,11 +110,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       Some(("del", sub_matches)) => {
         let project = sub_matches.value_of("NAME").expect("required");
         match database.remove_project(project) {
-          Ok(()) => {
+          Ok(project) => {
             println!(
               "{} project '{}'",
               Colour::Green.bold().paint("Deleted"),
-              project,
+              project.name(),
             );
           }
           Err(_) => {

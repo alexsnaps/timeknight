@@ -33,6 +33,7 @@ pub enum IllegalStateError {
 
 pub type RResult = Result<RecordEnded, IllegalStateError>;
 
+#[derive(Clone)]
 pub struct Record {
   start: chrono::DateTime<FixedOffset>,
   end: Option<chrono::DateTime<FixedOffset>>,
