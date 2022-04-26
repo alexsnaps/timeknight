@@ -90,7 +90,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
     Some(("project", sub_matches)) => match sub_matches.subcommand() {
       Some(("add", sub_matches)) => {
         let project = sub_matches.value_of("NAME").expect("required");
-        match database.add_project(project) {
+        match database.add_project(project.to_string()) {
           Ok(project) => {
             println!(
               "{} project '{}'",
@@ -109,7 +109,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       }
       Some(("del", sub_matches)) => {
         let project = sub_matches.value_of("NAME").expect("required");
-        match database.remove_project(project) {
+        match database.remove_project(project.to_string()) {
           Ok(project) => {
             println!(
               "{} project '{}'",
@@ -140,7 +140,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
     },
     Some(("start", sub_matches)) => {
       let name = sub_matches.value_of("NAME").expect("required");
-      if database.start_on(name).is_ok() {
+      if database.start_on(name.to_string()).is_ok() {
         println!(
           "{} tracking time on '{}'",
           Colour::Green.bold().paint("Started"),
@@ -149,11 +149,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       }
     }
     Some(("stop", _sub_matches)) => match database.stop() {
-      Ok(_) => {
+      Ok(project) => {
         println!(
           "{} tracking on {}",
           Colour::Green.bold().paint("Stopped"),
-          database.current_project().unwrap().name(),
+          project.name(),
         );
       }
       Err(_) => {

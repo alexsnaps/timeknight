@@ -30,12 +30,12 @@ pub enum Action {
 
 impl Action {
   pub fn apply<'a, 'b: 'a>(
-    &self,
+    self,
     entry: Entry<'b, ProjectKey, Project>,
   ) -> Result<Cow<'a, Project>, SomeDbError> {
     match self {
       Action::ProjectAdd { name } => match entry {
-        Entry::Vacant(e) => Ok(Cow::Borrowed(e.insert(Project::new(name.to_string())))),
+        Entry::Vacant(e) => Ok(Cow::Borrowed(e.insert(Project::new(name)))),
         Entry::Occupied(_) => Err(SomeDbError),
       },
       Action::ProjectDel { name: _ } => match entry {
@@ -44,8 +44,8 @@ impl Action {
       },
       Action::RecordStart { name: _, ts, tz } => match entry {
         Entry::Occupied(mut e) => {
-          let utc = Utc.timestamp(*ts, 0);
-          let offset = FixedOffset::from_offset(&FixedOffset::west(*tz));
+          let utc = Utc.timestamp(ts, 0);
+          let offset = FixedOffset::from_offset(&FixedOffset::west(tz));
           let start: DateTime<FixedOffset> = utc.with_timezone(&offset);
           e.get_mut()
             .add_record(Record::started_on(start))
@@ -56,8 +56,8 @@ impl Action {
       },
       Action::RecordStop { ts, tz } => match entry {
         Entry::Occupied(mut e) => {
-          let utc = Utc.timestamp(*ts, 0);
-          let offset = FixedOffset::from_offset(&FixedOffset::west(*tz));
+          let utc = Utc.timestamp(ts, 0);
+          let offset = FixedOffset::from_offset(&FixedOffset::west(tz));
           let end: DateTime<FixedOffset> = utc.with_timezone(&offset);
           e.get_mut().end_at(end).expect("Replay end failed");
           Ok(Cow::Borrowed(e.into_mut()))

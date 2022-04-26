@@ -73,30 +73,20 @@ impl Database {
     }
   }
 
-  pub fn add_project(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
-    let entry = self.projects.entry(ProjectKey::new(name));
+  pub fn add_project(&mut self, name: String) -> Result<Cow<Project>, SomeDbError> {
+    let entry = self.projects.entry(ProjectKey::new(&name));
     match entry {
-      Entry::Vacant(_) => Self::apply_action(
-        &mut self.storage,
-        entry,
-        Action::ProjectAdd {
-          name: name.to_string(),
-        },
-      ),
+      Entry::Vacant(_) => Self::apply_action(&mut self.storage, entry, Action::ProjectAdd { name }),
       Entry::Occupied(_) => Err(SomeDbError),
     }
   }
 
-  pub fn remove_project(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
-    let entry = self.projects.entry(ProjectKey::new(name));
+  pub fn remove_project(&mut self, name: String) -> Result<Cow<Project>, SomeDbError> {
+    let entry = self.projects.entry(ProjectKey::new(&name));
     match entry {
-      Entry::Occupied(_) => Self::apply_action(
-        &mut self.storage,
-        entry,
-        Action::ProjectDel {
-          name: name.to_string(),
-        },
-      ),
+      Entry::Occupied(_) => {
+        Self::apply_action(&mut self.storage, entry, Action::ProjectDel { name })
+      }
       Entry::Vacant(_) => Err(SomeDbError),
     }
   }
@@ -114,17 +104,17 @@ impl Database {
     }
   }
 
-  pub fn start_on(&mut self, name: &str) -> Result<Cow<Project>, SomeDbError> {
+  pub fn start_on(&mut self, name: String) -> Result<Cow<Project>, SomeDbError> {
     match self.silent_stop() {
       Ok(_) => {
-        let entry = self.projects.entry(ProjectKey::new(name));
+        let entry = self.projects.entry(ProjectKey::new(&name));
         let now = Local::now();
         match entry {
           Entry::Occupied(_) => Self::apply_action(
             &mut self.storage,
             entry,
             Action::RecordStart {
-              name: name.to_string(),
+              name,
               ts: now.timestamp(),
               tz: now.offset().utc_minus_local(),
             },
@@ -140,12 +130,16 @@ impl Database {
     if self.current_project().is_none() {
       return Err(SomeDbError);
     }
-    self.silent_stop()
+    self.silent_stop().map(|o| o.unwrap())
   }
 
-  fn silent_stop(&mut self) -> Result<Cow<Project>, SomeDbError> {
-    let key = self.last_project.as_ref().unwrap();
-    let entry = self.projects.entry(key.clone());
+  fn silent_stop(&mut self) -> Result<Option<Cow<Project>>, SomeDbError> {
+    if self.last_project.is_none() {
+      return Ok(None);
+    }
+
+    let key = self.last_project.take();
+    let entry = self.projects.entry(key.unwrap());
     let now = Local::now();
     match entry {
       Entry::Occupied(e) => {
@@ -164,6 +158,7 @@ impl Database {
       }
       Entry::Vacant(_) => Err(SomeDbError),
     }
+    .map(Some)
   }
 
   fn apply_action<'a>(
@@ -179,16 +174,15 @@ impl Database {
 }
 
 fn load_all(mut database: Database) -> Result<Database, ()> {
-  for (o_key, action) in database.storage.replay_actions() {
-    let key = match o_key {
-      None => database.last_project.as_ref().expect("We need a key here!"),
-      Some(ref project) => project,
-    };
+  for (key, action) in database.storage.replay_actions() {
+    let key = key.unwrap_or_else(|| database.last_project.expect("We need a key here!"));
     let project = action
-      .apply(database.projects.entry(key.clone()))
+      .apply(database.projects.entry(key))
       .expect("Something is off with our WAL!");
     if project.in_flight() {
-      database.last_project = Some(o_key.unwrap());
+      database.last_project = Some(ProjectKey::new(project.name()));
+    } else {
+      database.last_project = None;
     }
   }
   Ok(database)
