@@ -105,12 +105,14 @@ struct ReplayLog<'a> {
   buffer: Vec<u8>,
 }
 
+const REPLAY_LOG_BUFFER_SIZE: usize = 1024;
+
 impl<'a> ReplayLog<'a> {
   fn new(wal: &'a mut File) -> Self {
     wal.seek(SeekFrom::Start(0)).expect("Couldn't rewind WAL");
     ReplayLog {
       reader: io::BufReader::new(wal),
-      buffer: Vec::with_capacity(1024),
+      buffer: Vec::with_capacity(REPLAY_LOG_BUFFER_SIZE),
     }
   }
 }
