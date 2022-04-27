@@ -53,6 +53,14 @@ impl ProjectKey {
       key: key.to_lowercase(),
     }
   }
+
+  pub(crate) fn raw(key: String) -> Self {
+    ProjectKey { key }
+  }
+
+  pub(crate) fn as_bytes(&self) -> &[u8] {
+    self.key.as_bytes()
+  }
 }
 
 impl Database {
@@ -82,10 +90,11 @@ impl Database {
   }
 
   pub fn remove_project(&mut self, name: String) -> Result<Cow<Project>, SomeDbError> {
-    let entry = self.projects.entry(ProjectKey::new(&name));
+    let key = ProjectKey::new(&name);
+    let entry = self.projects.entry(key.clone());
     match entry {
       Entry::Occupied(_) => {
-        Self::apply_action(&mut self.storage, entry, Action::ProjectDel { name })
+        Self::apply_action(&mut self.storage, entry, Action::ProjectDel { key })
       }
       Entry::Vacant(_) => Err(SomeDbError),
     }
@@ -107,14 +116,15 @@ impl Database {
   pub fn start_on(&mut self, name: String) -> Result<Cow<Project>, SomeDbError> {
     match self.silent_stop() {
       Ok(_) => {
-        let entry = self.projects.entry(ProjectKey::new(&name));
+        let key = ProjectKey::new(&name);
+        let entry = self.projects.entry(key.clone());
         let now = Local::now();
         match entry {
           Entry::Occupied(_) => Self::apply_action(
             &mut self.storage,
             entry,
             Action::RecordStart {
-              name,
+              key,
               ts: now.timestamp(),
               tz: now.offset().utc_minus_local(),
             },

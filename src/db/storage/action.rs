@@ -23,8 +23,8 @@ use std::collections::btree_map::Entry;
 #[derive(Debug)]
 pub enum Action {
   ProjectAdd { name: String },
-  ProjectDel { name: String },
-  RecordStart { name: String, ts: i64, tz: i32 },
+  ProjectDel { key: ProjectKey },
+  RecordStart { key: ProjectKey, ts: i64, tz: i32 },
   RecordStop { ts: i64, tz: i32 },
 }
 
@@ -38,11 +38,11 @@ impl Action {
         Entry::Vacant(e) => Ok(Cow::Borrowed(e.insert(Project::new(name)))),
         Entry::Occupied(_) => Err(SomeDbError),
       },
-      Action::ProjectDel { name: _ } => match entry {
+      Action::ProjectDel { key: _ } => match entry {
         Entry::Occupied(e) => Ok(Cow::Owned(e.remove())),
         Entry::Vacant(_) => Err(SomeDbError),
       },
-      Action::RecordStart { name: _, ts, tz } => match entry {
+      Action::RecordStart { key: _, ts, tz } => match entry {
         Entry::Occupied(mut e) => {
           let utc = Utc.timestamp(ts, 0);
           let offset = FixedOffset::from_offset(&FixedOffset::west(tz));
@@ -74,17 +74,14 @@ impl Action {
         Ok((Some(ProjectKey::new(&name)), Action::ProjectAdd { name }))
       }
       126 => {
-        let name = String::from_utf8_lossy(&data[1..]).to_string();
-        Ok((Some(ProjectKey::new(&name)), Action::ProjectDel { name }))
+        let key = ProjectKey::raw(String::from_utf8_lossy(&data[1..]).to_string());
+        Ok((Some(key.clone()), Action::ProjectDel { key }))
       }
       125 => {
-        let name = String::from_utf8_lossy(&data[13..]).to_string();
+        let key = ProjectKey::raw(String::from_utf8_lossy(&data[13..]).to_string());
         let ts = i64::from_le_bytes(data[1..9].try_into().expect("Wrong math!"));
         let tz = i32::from_le_bytes(data[9..13].try_into().expect("Wrong math!"));
-        Ok((
-          Some(ProjectKey::new(&name)),
-          Action::RecordStart { name, ts, tz },
-        ))
+        Ok((Some(key.clone()), Action::RecordStart { key, ts, tz }))
       }
       124 => {
         let ts = i64::from_le_bytes(data[1..9].try_into().expect("Wrong math!"));
@@ -107,16 +104,16 @@ impl From<&Action> for Vec<u8> {
         buffer.push(b'\n');
         buffer
       }
-      Action::ProjectDel { name } => {
-        let raw = name.as_bytes();
+      Action::ProjectDel { key } => {
+        let raw = key.as_bytes();
         let mut buffer = Vec::with_capacity(raw.len() + 2);
         buffer.push(126);
         buffer.extend_from_slice(raw);
         buffer.push(b'\n');
         buffer
       }
-      Action::RecordStart { name, ts, tz } => {
-        let raw = name.as_bytes();
+      Action::RecordStart { key, ts, tz } => {
+        let raw = key.as_bytes();
         let mut buffer = Vec::with_capacity(raw.len() + 14);
         buffer.push(125);
         buffer.extend_from_slice(&ts.to_le_bytes());
@@ -147,7 +144,7 @@ mod tests {
   fn record_start_serializes_alright() {
     let time = DateTime::parse_from_rfc3339("2022-03-27T17:37:34.727018-04:00").unwrap();
     let record_start = Action::RecordStart {
-      name: "ourName".to_string(),
+      key: ProjectKey::new("ourName"),
       ts: time.timestamp(),
       tz: time.offset().utc_minus_local(),
     };
@@ -156,13 +153,13 @@ mod tests {
     assert_eq!(21, buffer.capacity());
     assert_eq!(
       buffer.as_slice(),
-      [125, 30, 217, 64, 98, 0, 0, 0, 0, 64, 56, 0, 0, 111, 117, 114, 78, 97, 109, 101, 10],
+      [125, 30, 217, 64, 98, 0, 0, 0, 0, 64, 56, 0, 0, 111, 117, 114, 110, 97, 109, 101, 10],
     );
     let (key, action) = Action::from_bytes(&buffer[..buffer.len() - 1]).unwrap();
     assert_eq!(key, Some(ProjectKey::new("OURNAME")));
     match action {
-      Action::RecordStart { name, ts, tz } => {
-        assert_eq!(name, "ourName");
+      Action::RecordStart { key, ts, tz } => {
+        assert_eq!(key, ProjectKey::new("ourName"));
         assert_eq!(ts, 1648417054);
         assert_eq!(tz, 14400);
       }
