@@ -25,6 +25,7 @@ use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -165,26 +166,37 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
     },
     Some(("status", _sub_matches)) => match database.current_project() {
       None => println!("Nothing going on!"),
-      Some(project) => match project.records().last() {
-        None => println!("Last created project: {}", project.name()),
-        Some(r) => {
-          if r.is_on_going() {
-            println!(
-              "Working on {} since {}",
-              project.name(),
-              r.start().to_rfc3339()
-            );
-          } else {
-            println!(
-              "Last worked on {} for {} minutes",
-              project.name(),
-              r.duration().as_secs() / 60
-            );
-          }
+      Some(project) => {
+        let r = project.records().last().unwrap();
+        if r.is_on_going() {
+          println!(
+            "Working on {} for {}",
+            Colour::Green.bold().paint(project.name()),
+            Colour::Green.paint(ddisplay(r.duration())),
+          );
         }
-      },
+      }
     },
     _ => unreachable!("clap should ensure we don't get here"),
+  }
+}
+
+fn ddisplay(duration: Duration) -> String {
+  match (
+    duration.as_secs() % 60,
+    (duration.as_secs() / 60) % 60,
+    (duration.as_secs() / 60) / 60,
+  ) {
+    (1, 0, 0) => "one second".to_string(),
+    (s, 0, 0) => format!("{s} seconds"),
+    (1, 1, 0) => "one minute one second".to_string(),
+    (s, 1, 0) => format!("one minute {s} second"),
+    (1, m, 0) => format!("{m} minutes one second"),
+    (s, m, 0) => format!("{m} minutes {s} seconds"),
+    (_, 0, 1) => "an hour".to_string(),
+    (_, 1, 1) => "an hour one minute".to_string(),
+    (_, m, 1) => format!("one hour {m} minute"),
+    (_, m, h) => format!("{h} hours {m} minute"),
   }
 }
 
