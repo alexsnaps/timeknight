@@ -20,6 +20,7 @@ pub mod db;
 use db::Database;
 use std::fs;
 
+use crate::core::Project;
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
@@ -60,6 +61,7 @@ fn main() {
     )
     .subcommand(App::new("stop").about("Stops tracking time"))
     .subcommand(App::new("status").about("Displays current status"))
+    .subcommand(App::new("report").about("Reports"))
     .get_matches();
 
   let location = db_location();
@@ -155,7 +157,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           "{} tracking on {} - {} recorded",
           Colour::Green.bold().paint("Stopped"),
           Colour::Green.bold().paint(project.name()),
-          Colour::Green.paint(ddisplay(project.records().last().unwrap().duration())),
+          Colour::Green.paint(dduration(project.records().last().unwrap().duration())),
         );
       }
       Err(_) => {
@@ -173,16 +175,39 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           println!(
             "Working on {} for {}",
             Colour::Green.bold().paint(project.name()),
-            Colour::Green.paint(ddisplay(r.duration())),
+            Colour::Green.paint(dduration(r.duration())),
           );
         }
       }
     },
+    Some(("report", _sub_matches)) => {
+      let projects = database.list_projects();
+      if !projects.is_empty() {
+        let width = projects
+          .iter()
+          .map(|r| r.name().len())
+          .max()
+          .unwrap_or(0)
+          .max(7);
+        println!("| {0: >width$} | Duration", "Project", width = width);
+        println!("===============================");
+        projects.iter().for_each(|p| dreport(p, width));
+      }
+    }
     _ => unreachable!("clap should ensure we don't get here"),
   }
 }
 
-fn ddisplay(duration: Duration) -> String {
+fn dreport(project: &Project, width: usize) {
+  println!(
+    "| {0: >width$} | {1}",
+    project.name(),
+    dduration(project.records().map(|r| r.duration()).sum()),
+    width = width,
+  );
+}
+
+fn dduration(duration: Duration) -> String {
   match (
     duration.as_secs() % 60,
     (duration.as_secs() / 60) % 60,
