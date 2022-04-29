@@ -152,9 +152,10 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
     Some(("stop", _sub_matches)) => match database.stop() {
       Ok(project) => {
         println!(
-          "{} tracking on {}",
+          "{} tracking on {} - {} recorded",
           Colour::Green.bold().paint("Stopped"),
-          project.name(),
+          Colour::Green.bold().paint(project.name()),
+          Colour::Green.paint(ddisplay(project.records().last().unwrap().duration())),
         );
       }
       Err(_) => {
