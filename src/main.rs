@@ -181,7 +181,8 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       }
     },
     Some(("report", _sub_matches)) => {
-      let projects = database.list_projects();
+      let mut projects = database.list_projects();
+      projects.sort_by_key(|p| p.name().to_lowercase());
       if !projects.is_empty() {
         let width = projects
           .iter()
