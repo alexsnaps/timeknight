@@ -20,7 +20,6 @@ pub mod db;
 use db::Database;
 use std::fs;
 
-use crate::core::Project;
 use ansi_term::Colour;
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
@@ -180,57 +179,54 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         }
       }
     },
-    Some(("report", _sub_matches)) => {
-      let h1 = "Project";
-      let h2 = "Duration";
-      let mut projects = database.list_projects();
-      projects.sort_by_key(|p| p.name().to_lowercase());
-
-      let durations: Vec<String> = projects
-        .iter()
-        .map(|p| dduration(p.records().map(|r| r.duration()).sum()))
-        .collect();
-
-      let p_width = projects
-        .iter()
-        .map(|r| r.name().len())
-        .max()
-        .unwrap_or(0)
-        .max(h1.len());
-      let d_width = durations
-        .iter()
-        .map(|d| d.len())
-        .max()
-        .unwrap_or(0)
-        .max(h2.len());
-
-      println!("┏━{0:━>w1$}━┯━{0:━^w2$}━┓", "━", w1 = p_width, w2 = d_width);
-      println!(
-        "┃ {0: ^w1$} │ {1: ^w2$} ┃",
-        h1,
-        h2,
-        w1 = p_width,
-        w2 = d_width
-      );
-      println!("┠─{0:─>w1$}─┼─{0:─^w2$}─┨", "─", w1 = p_width, w2 = d_width);
-      projects
-        .iter()
-        .enumerate()
-        .for_each(|(i, p)| dreport(p, durations[i].clone(), p_width, d_width));
-      println!("┗━{0:━>w1$}━┷━{0:━^w2$}━┛", "━", w1 = p_width, w2 = d_width);
-    }
+    Some(("report", _sub_matches)) => print_report(database),
     _ => unreachable!("clap should ensure we don't get here"),
   }
 }
 
-fn dreport(project: &Project, duration: String, w1: usize, w2: usize) {
+fn print_report(database: &mut Database) {
+  let h1 = "Project";
+  let h2 = "Duration";
+  let mut projects = database.list_projects();
+  projects.sort_by_key(|p| p.name().to_lowercase());
+
+  let durations: Vec<String> = projects
+    .iter()
+    .map(|p| dduration(p.records().map(|r| r.duration()).sum()))
+    .collect();
+
+  let p_width = projects
+    .iter()
+    .map(|r| r.name().len())
+    .max()
+    .unwrap_or(0)
+    .max(h1.len());
+  let d_width = durations
+    .iter()
+    .map(|d| d.len())
+    .max()
+    .unwrap_or(0)
+    .max(h2.len());
+
+  println!("┏━{0:━>w1$}━┯━{0:━^w2$}━┓", "━", w1 = p_width, w2 = d_width);
   println!(
-    "┃ {0: >w1$} │ {1: <w2$} ┃",
-    project.name(),
-    duration,
-    w1 = w1,
-    w2 = w2,
+    "┃ {0: ^w1$} │ {1: ^w2$} ┃",
+    h1,
+    h2,
+    w1 = p_width,
+    w2 = d_width
   );
+  println!("┠─{0:─>w1$}─┼─{0:─^w2$}─┨", "─", w1 = p_width, w2 = d_width);
+  projects.iter().enumerate().for_each(|(i, p)| {
+    println!(
+      "┃ {0: >w1$} │ {1: <w2$} ┃",
+      p.name(),
+      durations[i],
+      w1 = p_width,
+      w2 = d_width,
+    );
+  });
+  println!("┗━{0:━>w1$}━┷━{0:━^w2$}━┛", "━", w1 = p_width, w2 = d_width);
 }
 
 fn dduration(duration: Duration) -> String {
