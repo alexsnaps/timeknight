@@ -198,8 +198,9 @@ fn print_report(database: &mut Database) {
   let (p_width, d_width) = lines
     .iter()
     .map(|(r, d)| (r.len(), d.len()))
-    .fold((0, 0), |(m1, m2), (p, d)| (m1.max(p), m2.max(d)))
-    .max((h1.len(), h2.len()));
+    .fold((h1.len(), h2.len()), |(m1, m2), (p, d)| {
+      (m1.max(p), m2.max(d))
+    });
 
   println!("┏━{0:━>w1$}━┯━{0:━^w2$}━┓", "━", w1 = p_width, w2 = d_width);
   println!(
