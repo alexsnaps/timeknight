@@ -222,7 +222,7 @@ fn dduration(duration: Duration) -> String {
     (_, 0, 1) => "an hour".to_string(),
     (_, 1, 1) => "an hour one minute".to_string(),
     (_, m, 1) => format!("one hour {m} minute"),
-    (_, m, h) => format!("{h} hours {m} minute"),
+    (_, m, h) => format!("{h} hours {m} minutes"),
   }
 }
 
