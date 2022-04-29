@@ -190,23 +190,16 @@ fn print_report(database: &mut Database) {
   let mut projects = database.list_projects();
   projects.sort_by_key(|p| p.name().to_lowercase());
 
-  let durations: Vec<String> = projects
+  let lines: Vec<(&str, String)> = projects
     .iter()
-    .map(|p| dduration(p.records().map(|r| r.duration()).sum()))
+    .map(|p| (p.name(), dduration(p.records().map(|r| r.duration()).sum())))
     .collect();
 
-  let p_width = projects
+  let (p_width, d_width) = lines
     .iter()
-    .map(|r| r.name().len())
-    .max()
-    .unwrap_or(0)
-    .max(h1.len());
-  let d_width = durations
-    .iter()
-    .map(|d| d.len())
-    .max()
-    .unwrap_or(0)
-    .max(h2.len());
+    .map(|(r, d)| (r.len(), d.len()))
+    .fold((0, 0), |(m1, m2), (p, d)| (m1.max(p), m2.max(d)))
+    .max((h1.len(), h2.len()));
 
   println!("┏━{0:━>w1$}━┯━{0:━^w2$}━┓", "━", w1 = p_width, w2 = d_width);
   println!(
@@ -217,11 +210,11 @@ fn print_report(database: &mut Database) {
     w2 = d_width
   );
   println!("┠─{0:─>w1$}─┼─{0:─^w2$}─┨", "─", w1 = p_width, w2 = d_width);
-  projects.iter().enumerate().for_each(|(i, p)| {
+  lines.iter().for_each(|(project, duration)| {
     println!(
       "┃ {0: >w1$} │ {1: <w2$} ┃",
-      p.name(),
-      durations[i],
+      project,
+      duration,
       w1 = p_width,
       w2 = d_width,
     );
