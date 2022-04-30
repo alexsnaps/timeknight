@@ -21,6 +21,7 @@ use db::Database;
 use std::fs;
 
 use ansi_term::Colour;
+use chrono::{Date, Local};
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
 use std::io::ErrorKind;
@@ -60,7 +61,14 @@ fn main() {
     )
     .subcommand(App::new("stop").about("Stops tracking time"))
     .subcommand(App::new("status").about("Displays current status"))
-    .subcommand(App::new("report").about("Reports"))
+    .subcommand(
+      App::new("report").about("Reports").arg(
+        arg!(<PERIOD> "Period to produce the report for")
+          .required(false)
+          .possible_values(["all", "today", "yesterday"])
+          .default_value("all"),
+      ),
+    )
     .get_matches();
 
   let location = db_location();
@@ -179,21 +187,52 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         }
       }
     },
-    Some(("report", _sub_matches)) => print_report(database),
+    Some(("report", sub_matches)) => match sub_matches.value_of("PERIOD").unwrap() {
+      "all" => {
+        let mut projects = database.list_projects();
+        projects.sort_by_key(|p| p.name().to_lowercase());
+        let lines: Vec<(&str, String)> = projects
+          .iter()
+          .map(|p| (p.name(), dduration(p.records().map(|r| r.duration()).sum())))
+          .collect();
+        print_report(lines);
+      }
+      "today" => {
+        let lines = lines_for_day(database, Local::today());
+        print_report(lines);
+      }
+      "yesterday" => {
+        let lines = lines_for_day(database, Local::today() - chrono::Duration::days(1));
+        print_report(lines);
+      }
+      _ => unreachable!("clap should ensure we don't get here"),
+    },
     _ => unreachable!("clap should ensure we don't get here"),
   }
 }
 
-fn print_report(database: &mut Database) {
-  let h1 = "Project";
-  let h2 = "Duration";
+fn lines_for_day(database: &mut Database, day: Date<Local>) -> Vec<(&str, String)> {
   let mut projects = database.list_projects();
   projects.sort_by_key(|p| p.name().to_lowercase());
-
-  let lines: Vec<(&str, String)> = projects
+  projects
     .iter()
-    .map(|p| (p.name(), dduration(p.records().map(|r| r.duration()).sum())))
-    .collect();
+    .map(|p| {
+      (
+        p.name(),
+        dduration(
+          p.records()
+            .filter(|r| r.start().date().eq(&day))
+            .map(|r| r.duration())
+            .sum(),
+        ),
+      )
+    })
+    .collect::<Vec<(&str, String)>>()
+}
+
+fn print_report(lines: Vec<(&str, String)>) {
+  let h1 = "Project";
+  let h2 = "Duration";
 
   let (p_width, d_width) = lines
     .iter()
@@ -229,6 +268,7 @@ fn dduration(duration: Duration) -> String {
     (duration.as_secs() / 60) % 60,
     (duration.as_secs() / 60) / 60,
   ) {
+    (0, 0, 0) => "None".to_string(),
     (1, 0, 0) => "one second".to_string(),
     (s, 0, 0) => format!("{s} seconds"),
     (1, 1, 0) => "one minute one second".to_string(),
