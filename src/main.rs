@@ -71,7 +71,7 @@ fn main() {
           arg!(<PERIOD> "Period to produce the report for")
             .required(false)
             .possible_values([
-              "all",
+              "ever",
               "today",
               "yesterday",
               "week",
@@ -79,7 +79,7 @@ fn main() {
               "month",
               "lastmonth",
             ])
-            .default_value("all"),
+            .default_value("ever"),
         )
         .arg(
           arg!(--"by" <GROUPING>)
@@ -206,10 +206,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       }
     },
     Some(("report", sub_matches)) => match sub_matches.value_of("PERIOD").unwrap() {
-      "all" => {
+      "ever" => {
         let mut projects = database.list_projects();
         projects.sort_by_key(|p| p.name().to_lowercase());
-        let lines: Vec<(String, String)> = if let Some(_by_day) = sub_matches.value_of("by") {
+        let lines: Vec<(String, String, String)> = if let Some(_by_day) = sub_matches.value_of("by")
+        {
           projects
             .iter()
             .flat_map(|p| {
@@ -219,64 +220,65 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
                 .map(|(day, records)| {
                   (
                     p.name().to_string(),
-                    format!(
-                      "{} {}",
-                      day.naive_local(),
-                      dduration(records.into_iter().map(|r| r.duration()).sum())
-                    ),
+                    format!("{}", day.naive_local()),
+                    dduration(records.into_iter().map(|r| r.duration()).sum()),
                   )
                 })
-                .collect::<Vec<(String, String)>>()
+                .collect::<Vec<(String, String, String)>>()
             })
             .collect()
         } else {
           projects
             .iter()
-            .map(|p| (p.name().to_string(), dduration(p.records().map(|r| r.duration()).sum())))
+            .map(|p| {
+              (
+                p.name().to_string(),
+                "Ever".to_string(),
+                dduration(p.records().map(|r| r.duration()).sum()),
+              )
+            })
             .collect()
         };
         print_report(lines);
       }
       "today" => {
         let today = Local::today();
-        let lines = lines_for(database, &|r: &&Record| {
+        let lines = lines_for(database, "today".to_string(), &|r: &&Record| {
           r.start().date().eq(&today)
         });
         print_report(lines);
       }
       "yesterday" => {
         let yesterday = Local::today() - chrono::Duration::days(1);
-        let lines = lines_for(database, &|r| {
-          r.start()
-            .date()
-            .eq(&(yesterday))
+        let lines = lines_for(database, yesterday.naive_local().to_string(), &|r| {
+          r.start().date().eq(&(yesterday))
         });
         print_report(lines);
       }
       "week" => {
         let today = Local::today();
-        let lines = lines_for(database, &|r| {
+        let lines = lines_for(database, "this week".to_string(), &|r| {
           r.start().iso_week() == today.iso_week()
         });
         print_report(lines);
       }
       "lastweek" => {
         let today = Local::today();
-        let lines = lines_for(database, &|r| {
+        let lines = lines_for(database, "last week".to_string(), &|r| {
           r.start().iso_week() == today.sub(chrono::Duration::weeks(1)).iso_week()
         });
         print_report(lines);
       }
       "month" => {
         let today = Local::today();
-        let lines = lines_for(database, &|r| {
+        let lines = lines_for(database, "this month".to_string(), &|r| {
           r.start().month() == today.month() && r.start().year() == today.year()
         });
         print_report(lines);
       }
       "lastmonth" => {
         let today = Local::today();
-        let lines = lines_for(database, &|r| {
+        let lines = lines_for(database, "last month".to_string(), &|r| {
           let (month, year) = if today.month() == 1 {
             (12, today.year() - 1)
           } else {
@@ -292,7 +294,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
   }
 }
 
-fn lines_for(database: &mut Database, filter: &impl Fn(&&Record) -> bool) -> Vec<(String, String)> {
+fn lines_for(
+  database: &mut Database,
+  period: String,
+  filter: &impl Fn(&&Record) -> bool,
+) -> Vec<(String, String, String)> {
   let mut projects = database.list_projects();
   projects.sort_by_key(|p| p.name().to_lowercase());
   projects
@@ -300,42 +306,66 @@ fn lines_for(database: &mut Database, filter: &impl Fn(&&Record) -> bool) -> Vec
     .map(|p| {
       (
         p.name().to_string(),
+        period.clone(),
         dduration(p.records().filter(filter).map(|r| r.duration()).sum()),
       )
     })
-    .collect::<Vec<(String, String)>>()
+    .collect::<Vec<(String, String, String)>>()
 }
 
-fn print_report(lines: Vec<(String, String)>) {
+fn print_report(lines: Vec<(String, String, String)>) {
   let h1 = "Project";
-  let h2 = "Duration";
+  let h2 = "Period";
+  let h3 = "Duration";
 
-  let (p_width, d_width) = lines
+  let (n_width, p_width, d_width) = lines
     .iter()
-    .map(|(r, d)| (r.len(), d.len()))
-    .fold((h1.len(), h2.len()), |(m1, m2), (p, d)| {
-      (m1.max(p), m2.max(d))
+    .map(|(n, p, d)| (n.len(), p.len(), d.len()))
+    .fold((h1.len(), h2.len(), h3.len()), |(m1, m2, m3), (n, p, d)| {
+      (m1.max(n), m2.max(p), m3.max(d))
     });
 
-  println!("┏━{0:━>w1$}━┯━{0:━^w2$}━┓", "━", w1 = p_width, w2 = d_width);
   println!(
-    "┃ {0: ^w1$} │ {1: ^w2$} ┃",
+    "┏━{0:━>w1$}━┯━{0:━>w2$}━┯━{0:━^w3$}━┓",
+    "━",
+    w1 = n_width,
+    w2 = p_width,
+    w3 = d_width
+  );
+  println!(
+    "┃ {0: ^w1$} │ {1: ^w2$} │ {2: ^w3$} ┃",
     h1,
     h2,
-    w1 = p_width,
-    w2 = d_width
+    h3,
+    w1 = n_width,
+    w2 = p_width,
+    w3 = d_width
   );
-  println!("┠─{0:─>w1$}─┼─{0:─^w2$}─┨", "─", w1 = p_width, w2 = d_width);
-  lines.iter().for_each(|(project, duration)| {
+  println!(
+    "┠─{0:─>w1$}─┼─{0:─>w2$}─┼─{0:─^w3$}─┨",
+    "─",
+    w1 = n_width,
+    w2 = p_width,
+    w3 = d_width
+  );
+  lines.iter().for_each(|(project, period, duration)| {
     println!(
-      "┃ {0: >w1$} │ {1: <w2$} ┃",
+      "┃ {0: >w1$} │ {1: ^w2$} │ {2: <w3$} ┃",
       project,
+      period,
       duration,
-      w1 = p_width,
-      w2 = d_width,
+      w1 = n_width,
+      w2 = p_width,
+      w3 = d_width,
     );
   });
-  println!("┗━{0:━>w1$}━┷━{0:━^w2$}━┛", "━", w1 = p_width, w2 = d_width);
+  println!(
+    "┗━{0:━>w1$}━┷━{0:━>w2$}━┷━{0:━^w3$}━┛",
+    "━",
+    w1 = n_width,
+    w2 = p_width,
+    w3 = d_width
+  );
 }
 
 fn dduration(duration: Duration) -> String {
