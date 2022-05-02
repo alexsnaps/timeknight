@@ -20,11 +20,14 @@ pub mod db;
 use db::Database;
 use std::fs;
 
+use crate::core::Record;
 use ansi_term::Colour;
-use chrono::{Date, Local};
+use chrono::{Datelike, Local};
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
+use itertools::Itertools;
 use std::io::ErrorKind;
+use std::ops::Sub;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -62,12 +65,27 @@ fn main() {
     .subcommand(App::new("stop").about("Stops tracking time"))
     .subcommand(App::new("status").about("Displays current status"))
     .subcommand(
-      App::new("report").about("Reports").arg(
-        arg!(<PERIOD> "Period to produce the report for")
-          .required(false)
-          .possible_values(["all", "today", "yesterday"])
-          .default_value("all"),
-      ),
+      App::new("report")
+        .about("Reports")
+        .arg(
+          arg!(<PERIOD> "Period to produce the report for")
+            .required(false)
+            .possible_values([
+              "all",
+              "today",
+              "yesterday",
+              "week",
+              "lastweek",
+              "month",
+              "lastmonth",
+            ])
+            .default_value("all"),
+        )
+        .arg(
+          arg!(--"by" <GROUPING>)
+            .possible_values(["day"])
+            .required(false),
+        ),
     )
     .get_matches();
 
@@ -191,18 +209,81 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       "all" => {
         let mut projects = database.list_projects();
         projects.sort_by_key(|p| p.name().to_lowercase());
-        let lines: Vec<(&str, String)> = projects
-          .iter()
-          .map(|p| (p.name(), dduration(p.records().map(|r| r.duration()).sum())))
-          .collect();
+        let lines: Vec<(String, String)> = if let Some(_by_day) = sub_matches.value_of("by") {
+          projects
+            .iter()
+            .flat_map(|p| {
+              p.records()
+                .group_by(|r| r.start().date())
+                .into_iter()
+                .map(|(day, records)| {
+                  (
+                    p.name().to_string(),
+                    format!(
+                      "{} {}",
+                      day.naive_local(),
+                      dduration(records.into_iter().map(|r| r.duration()).sum())
+                    ),
+                  )
+                })
+                .collect::<Vec<(String, String)>>()
+            })
+            .collect()
+        } else {
+          projects
+            .iter()
+            .map(|p| (p.name().to_string(), dduration(p.records().map(|r| r.duration()).sum())))
+            .collect()
+        };
         print_report(lines);
       }
       "today" => {
-        let lines = lines_for_day(database, Local::today());
+        let today = Local::today();
+        let lines = lines_for(database, &|r: &&Record| {
+          r.start().date().eq(&today)
+        });
         print_report(lines);
       }
       "yesterday" => {
-        let lines = lines_for_day(database, Local::today() - chrono::Duration::days(1));
+        let yesterday = Local::today() - chrono::Duration::days(1);
+        let lines = lines_for(database, &|r| {
+          r.start()
+            .date()
+            .eq(&(yesterday))
+        });
+        print_report(lines);
+      }
+      "week" => {
+        let today = Local::today();
+        let lines = lines_for(database, &|r| {
+          r.start().iso_week() == today.iso_week()
+        });
+        print_report(lines);
+      }
+      "lastweek" => {
+        let today = Local::today();
+        let lines = lines_for(database, &|r| {
+          r.start().iso_week() == today.sub(chrono::Duration::weeks(1)).iso_week()
+        });
+        print_report(lines);
+      }
+      "month" => {
+        let today = Local::today();
+        let lines = lines_for(database, &|r| {
+          r.start().month() == today.month() && r.start().year() == today.year()
+        });
+        print_report(lines);
+      }
+      "lastmonth" => {
+        let today = Local::today();
+        let lines = lines_for(database, &|r| {
+          let (month, year) = if today.month() == 1 {
+            (12, today.year() - 1)
+          } else {
+            (today.month() - 1, today.year())
+          };
+          r.start().month() == month && r.start().year() == year
+        });
         print_report(lines);
       }
       _ => unreachable!("clap should ensure we don't get here"),
@@ -211,26 +292,21 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
   }
 }
 
-fn lines_for_day(database: &mut Database, day: Date<Local>) -> Vec<(&str, String)> {
+fn lines_for(database: &mut Database, filter: &impl Fn(&&Record) -> bool) -> Vec<(String, String)> {
   let mut projects = database.list_projects();
   projects.sort_by_key(|p| p.name().to_lowercase());
   projects
     .iter()
     .map(|p| {
       (
-        p.name(),
-        dduration(
-          p.records()
-            .filter(|r| r.start().date().eq(&day))
-            .map(|r| r.duration())
-            .sum(),
-        ),
+        p.name().to_string(),
+        dduration(p.records().filter(filter).map(|r| r.duration()).sum()),
       )
     })
-    .collect::<Vec<(&str, String)>>()
+    .collect::<Vec<(String, String)>>()
 }
 
-fn print_report(lines: Vec<(&str, String)>) {
+fn print_report(lines: Vec<(String, String)>) {
   let h1 = "Project";
   let h2 = "Duration";
 

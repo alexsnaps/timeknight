@@ -12,6 +12,7 @@ clap = { version = "3.0.13" }
 ansi_term = { version = "0.12.1" }
 dirs = { version = "4.0.0" }
 console = "0.15.0"
+itertools = "0.10.3"
 
 [[bin]]
 name = "timek"
