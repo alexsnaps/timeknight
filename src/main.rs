@@ -20,14 +20,13 @@ pub mod db;
 use db::Database;
 use std::fs;
 
-use crate::core::Record;
+use crate::core::Project;
 use ansi_term::Colour;
-use chrono::{Datelike, Local};
+use chrono::{DateTime, Datelike, Local};
 use clap::{arg, App, AppSettings, ArgMatches};
 use console::Term;
 use itertools::Itertools;
 use std::io::ErrorKind;
-use std::ops::Sub;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -205,112 +204,122 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         }
       }
     },
-    Some(("report", sub_matches)) => match sub_matches.value_of("PERIOD").unwrap() {
-      "ever" => {
-        let mut projects = database.list_projects();
-        projects.sort_by_key(|p| p.name().to_lowercase());
-        let lines: Vec<(String, String, String)> = if let Some(_by_day) = sub_matches.value_of("by")
-        {
-          projects
-            .iter()
-            .flat_map(|p| {
-              p.records()
-                .group_by(|r| r.start().date())
-                .into_iter()
-                .map(|(day, records)| {
-                  (
-                    p.name().to_string(),
-                    format!("{}", day.naive_local()),
-                    dduration(records.into_iter().map(|r| r.duration()).sum()),
-                  )
-                })
-                .collect::<Vec<(String, String, String)>>()
-            })
-            .collect()
-        } else {
-          projects
-            .iter()
-            .map(|p| {
-              (
-                p.name().to_string(),
-                "Ever".to_string(),
-                dduration(p.records().map(|r| r.duration()).sum()),
-              )
-            })
-            .collect()
-        };
-        print_report(lines);
-      }
-      "today" => {
-        let today = Local::today();
-        let lines = lines_for(database, "today".to_string(), &|r: &&Record| {
-          r.start().date().eq(&today)
-        });
-        print_report(lines);
-      }
-      "yesterday" => {
-        let yesterday = Local::today() - chrono::Duration::days(1);
-        let lines = lines_for(database, yesterday.naive_local().to_string(), &|r| {
-          r.start().date().eq(&(yesterday))
-        });
-        print_report(lines);
-      }
-      "week" => {
-        let today = Local::today();
-        let lines = lines_for(database, "this week".to_string(), &|r| {
-          r.start().iso_week() == today.iso_week()
-        });
-        print_report(lines);
-      }
-      "lastweek" => {
-        let today = Local::today();
-        let lines = lines_for(database, "last week".to_string(), &|r| {
-          r.start().iso_week() == today.sub(chrono::Duration::weeks(1)).iso_week()
-        });
-        print_report(lines);
-      }
-      "month" => {
-        let today = Local::today();
-        let lines = lines_for(database, "this month".to_string(), &|r| {
-          r.start().month() == today.month() && r.start().year() == today.year()
-        });
-        print_report(lines);
-      }
-      "lastmonth" => {
-        let today = Local::today();
-        let lines = lines_for(database, "last month".to_string(), &|r| {
-          let (month, year) = if today.month() == 1 {
-            (12, today.year() - 1)
-          } else {
-            (today.month() - 1, today.year())
-          };
-          r.start().month() == month && r.start().year() == year
-        });
-        print_report(lines);
-      }
-      _ => unreachable!("clap should ensure we don't get here"),
-    },
+    Some(("report", sub_matches)) => {
+      let mut projects = database.list_projects();
+      projects.sort_by_key(|p| p.name().to_lowercase());
+      let now = Local::now();
+      let period = sub_matches.value_of("PERIOD").unwrap();
+      let lines = build_report(&projects, now, period, sub_matches.value_of("by").is_some());
+      print_report(lines);
+    }
     _ => unreachable!("clap should ensure we don't get here"),
   }
 }
 
-fn lines_for(
-  database: &mut Database,
-  period: String,
-  filter: &impl Fn(&&Record) -> bool,
+fn build_report(
+  projects: &[&Project],
+  now: DateTime<Local>,
+  period: &str,
+  by_day: bool,
 ) -> Vec<(String, String, String)> {
-  let mut projects = database.list_projects();
-  projects.sort_by_key(|p| p.name().to_lowercase());
-  projects
-    .iter()
-    .map(|p| {
+  let tz = now.offset();
+  let (start, end) = match period {
+    "ever" => {
+      let min = chrono::MIN_DATE;
+      let max = chrono::MAX_DATE;
+      (min.with_timezone(tz), max.with_timezone(tz))
+    }
+    "today" => {
+      let today = now.with_timezone(now.offset());
+      (today.date(), today.date())
+    }
+    "yesterday" => {
+      let yesterday = Local::today() - chrono::Duration::days(1);
       (
-        p.name().to_string(),
-        period.clone(),
-        dduration(p.records().filter(filter).map(|r| r.duration()).sum()),
+        yesterday.with_timezone(yesterday.offset()),
+        yesterday.with_timezone(yesterday.offset()),
       )
-    })
-    .collect::<Vec<(String, String, String)>>()
+    }
+    "week" => {
+      let off = now.weekday().num_days_from_monday();
+      let start = Local::today() - chrono::Duration::days(off as i64);
+      let today = now.with_timezone(now.offset());
+      (start.with_timezone(start.offset()), today.date())
+    }
+    "lastweek" => {
+      let off = now.weekday().num_days_from_monday();
+      let start = Local::today() - chrono::Duration::days(off as i64 + 7);
+      let end = Local::today() - chrono::Duration::days(off as i64 + 1);
+      (
+        start.with_timezone(start.offset()),
+        end.with_timezone(end.offset()),
+      )
+    }
+
+    "month" => {
+      let start = Local::today().with_day(1).unwrap();
+      let today = now.with_timezone(now.offset());
+      (start.with_timezone(start.offset()), today.date())
+    }
+    "lastmonth" => {
+      let start = Local::today()
+        .with_day(1)
+        .unwrap()
+        .with_month(now.month() - 1)
+        .unwrap();
+      let end = start.with_month(now.month()).unwrap() - chrono::Duration::days(1);
+      (
+        start.with_timezone(start.offset()),
+        end.with_timezone(start.offset()),
+      )
+    }
+    _ => unreachable!("clap should ensure we don't get here"),
+  };
+  let lines: Vec<(String, String, String)> = if by_day {
+    projects
+      .iter()
+      .flat_map(|p| {
+        p.records()
+          .group_by(|r| r.start().date())
+          .into_iter()
+          .filter(|(day, _)| day >= &start && day <= &end)
+          .map(|(day, records)| {
+            (
+              p.name().to_string(),
+              format!("{}", day.naive_local()),
+              dduration(
+                records
+                  .into_iter()
+                  .filter(|r| r.start().date() >= start && r.start().date() <= end)
+                  .map(|r| r.duration())
+                  .sum(),
+              ),
+            )
+          })
+          .collect::<Vec<(String, String, String)>>()
+      })
+      .collect()
+  } else {
+    projects
+      .iter()
+      .map(|p| {
+        (
+          p.name().to_string(),
+          period.to_string(),
+          dduration(
+            p.records()
+              .filter(|r| {
+                r.start().date().naive_local() >= start.naive_local()
+                  && r.start().date().naive_local() <= end.naive_local()
+              })
+              .map(|r| r.duration())
+              .sum(),
+          ),
+        )
+      })
+      .collect()
+  };
+  lines
 }
 
 fn print_report(lines: Vec<(String, String, String)>) {
