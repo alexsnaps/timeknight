@@ -234,35 +234,33 @@ fn build_report(
       (today.date(), today.date())
     }
     "yesterday" => {
-      let yesterday = Local::today() - chrono::Duration::days(1);
-      (
-        yesterday.with_timezone(yesterday.offset()),
-        yesterday.with_timezone(yesterday.offset()),
-      )
+      let yesterday = now.with_timezone(now.offset()) - chrono::Duration::days(1);
+      (yesterday.date(), yesterday.date())
     }
     "week" => {
       let off = now.weekday().num_days_from_monday();
-      let start = Local::today() - chrono::Duration::days(off as i64);
       let today = now.with_timezone(now.offset());
-      (start.with_timezone(start.offset()), today.date())
+      let start = today - chrono::Duration::days(off as i64);
+      (start.date(), today.date())
     }
     "lastweek" => {
       let off = now.weekday().num_days_from_monday();
-      let start = Local::today() - chrono::Duration::days(off as i64 + 7);
-      let end = Local::today() - chrono::Duration::days(off as i64 + 1);
+      let start = now - chrono::Duration::days(off as i64 + 7);
+      let end = now - chrono::Duration::days(off as i64 + 1);
       (
-        start.with_timezone(start.offset()),
-        end.with_timezone(end.offset()),
+        start.with_timezone(start.offset()).date(),
+        end.with_timezone(end.offset()).date(),
       )
     }
 
     "month" => {
-      let start = Local::today().with_day(1).unwrap();
+      let start = now.date().with_day(1).unwrap();
       let today = now.with_timezone(now.offset());
       (start.with_timezone(start.offset()), today.date())
     }
     "lastmonth" => {
-      let start = Local::today()
+      let start = now
+        .date()
         .with_day(1)
         .unwrap()
         .with_month(now.month() - 1)
