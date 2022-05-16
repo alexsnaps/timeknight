@@ -181,7 +181,9 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           "{} tracking on {} - {} recorded",
           Colour::Green.bold().paint("Stopped"),
           Colour::Green.bold().paint(project.name()),
-          Colour::Green.paint(dduration(project.records().last().unwrap().duration())),
+          Colour::Green.paint(display_duration(
+            project.records().last().unwrap().duration()
+          )),
         );
       }
       Err(_) => {
@@ -199,7 +201,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           println!(
             "Working on {} for {}",
             Colour::Green.bold().paint(project.name()),
-            Colour::Green.paint(dduration(r.duration())),
+            Colour::Green.paint(display_duration(r.duration())),
           );
         }
       }
@@ -285,7 +287,7 @@ fn build_report(
             (
               p.name().to_string(),
               format!("{}", day.naive_local()),
-              dduration(
+              display_duration(
                 records
                   .into_iter()
                   .filter(|r| r.start().date() >= start && r.start().date() <= end)
@@ -304,7 +306,7 @@ fn build_report(
         (
           p.name().to_string(),
           period.to_string(),
-          dduration(
+          display_duration(
             p.records()
               .filter(|r| {
                 r.start().date().naive_local() >= start.naive_local()
@@ -375,7 +377,7 @@ fn print_report(lines: Vec<(String, String, String)>) {
   );
 }
 
-fn dduration(duration: Duration) -> String {
+fn display_duration(duration: Duration) -> String {
   match (
     duration.as_secs() % 60,
     (duration.as_secs() / 60) % 60,
