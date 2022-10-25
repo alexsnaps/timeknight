@@ -21,10 +21,9 @@ use db::Database;
 use std::fs;
 
 use crate::core::Project;
-use ansi_term::Colour;
 use chrono::{DateTime, Datelike, Local};
 use clap::{arg, App, AppSettings, ArgMatches};
-use console::Term;
+use console::{style, Term};
 use itertools::Itertools;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -97,14 +96,14 @@ fn main() {
       ErrorKind::InvalidInput => {
         eprintln!(
           "{} Location {} doesn't appear to be a directory!",
-          Colour::Red.bold().paint("FAIL"),
+          style("FAIL").red().bold(),
           location.display(),
         )
       }
       _ => {
         eprintln!(
           "{} Couldn't access storage: {}",
-          Colour::Red.bold().paint("FAIL"),
+          style("FAIL").red().bold(),
           location.display(),
         )
       }
@@ -121,14 +120,14 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           Ok(project) => {
             println!(
               "{} project '{}'",
-              Colour::Green.bold().paint("Created"),
+              style("Created").green().bold(),
               project.name(),
             );
           }
           Err(_) => {
             println!(
               "{} to create project '{}'",
-              Colour::Red.bold().paint("Failed"),
+              style("Failed").red().bold(),
               project,
             );
           }
@@ -140,14 +139,14 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
           Ok(project) => {
             println!(
               "{} project '{}'",
-              Colour::Green.bold().paint("Deleted"),
+              style("Deleted").green().bold(),
               project.name(),
             );
           }
           Err(_) => {
             println!(
               "{} to delete project '{}'",
-              Colour::Red.bold().paint("Failed"),
+              style("Failed").red().bold(),
               project,
             );
           }
@@ -158,7 +157,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         if projects.is_empty() {
           println!(
             "{} use 'add' to create one",
-            Colour::Yellow.bold().paint("No projects"),
+            style("No projects").yellow().bold(),
           );
         }
         projects.iter().for_each(|p| println!("{}", p.name()));
@@ -170,7 +169,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       if database.start_on(name.to_string()).is_ok() {
         println!(
           "{} tracking time on '{}'",
-          Colour::Green.bold().paint("Started"),
+          style("Started").green().bold(),
           name,
         );
       }
@@ -179,17 +178,18 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       Ok(project) => {
         println!(
           "{} tracking on {} - {} recorded",
-          Colour::Green.bold().paint("Stopped"),
-          Colour::Green.bold().paint(project.name()),
-          Colour::Green.paint(display_duration(
+          style("Stopped").green().bold(),
+          style(project.name()).green().bold(),
+          style(display_duration(
             project.records().last().unwrap().duration()
-          )),
+          ))
+          .green(),
         );
       }
       Err(_) => {
         println!(
           "{} to be stopped",
-          Colour::Yellow.bold().paint("No tracked project"),
+          style("No tracked project").yellow().bold(),
         );
       }
     },
@@ -200,8 +200,8 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         if r.is_on_going() {
           println!(
             "Working on {} for {}",
-            Colour::Green.bold().paint(project.name()),
-            Colour::Green.paint(display_duration(r.duration())),
+            style(project.name()).green().bold(),
+            style(display_duration(r.duration())).green(),
           );
         }
       }
@@ -402,16 +402,12 @@ fn db_location() -> PathBuf {
     .get_or_insert_with(|| {
       eprintln!(
         "{} Could not find a home directory, falling back to current directory",
-        Colour::Purple.paint("Ugh!")
+        style("Ugh!").cyan(),
       );
       match std::env::current_dir() {
         Ok(location) => location,
         Err(err) => {
-          eprintln!(
-            "{}: {}",
-            Colour::Red.paint("Can't access current directory"),
-            err
-          );
+          eprintln!("{}: {}", style("Can't access current directory").red(), err);
           std::process::exit(1);
         }
       }
@@ -423,7 +419,7 @@ fn init_if_needed(location: &Path) {
   if !location.exists() {
     println!(
       "{} Looks like the environment wasn't ever set up...",
-      Colour::Purple.paint("Welcome!")
+      style("Welcome!").cyan(),
     );
     println!("Should we initialize it in {} ?", location.display());
     match Term::stdout().read_char() {
@@ -431,21 +427,21 @@ fn init_if_needed(location: &Path) {
         Ok(_) => {
           println!(
             "{} db... {}",
-            Colour::Green.bold().paint("Initializing"),
-            Colour::Green.paint("Done!"),
+            style("Initializing").green().bold(),
+            style("Done!").green(),
           );
         }
         Err(err) => {
           eprintln!(
             "{} initializing db: {}",
-            Colour::Red.bold().paint("Error"),
-            Colour::Red.paint(format!("{}", err)),
+            style("Error").red().bold(),
+            style(format!("{}", err)).red().bold(),
           );
           std::process::exit(1);
         }
       },
       _ => {
-        eprintln!("{} bye!", Colour::Purple.paint("Aborting..."));
+        eprintln!("{} bye!", style("Aborting...").yellow());
         std::process::exit(1);
       }
     };
