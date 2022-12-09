@@ -7,7 +7,7 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = { version = "0.4" }
+chrono = { version = "=0.4.19", default-features = false, features=["std", "clock"] }
 clap = { version = "3.0.13" }
 dirs = { version = "4.0.0" }
 console = "0.15.0"
