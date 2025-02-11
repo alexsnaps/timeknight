@@ -44,7 +44,6 @@ impl FsStorage {
     {
       Ok(_) => match OpenOptions::new()
         .read(true)
-        .write(true)
         .create(true)
         .append(true)
         .open(location.join(WAL_FILE))
@@ -77,7 +76,8 @@ impl FsStorage {
   #[cfg(test)]
   pub fn delete(&mut self) {
     let path = self.location.join(WAL_FILE);
-    remove_file(path.clone()).expect(&format!("Couldn't delete our db at {}", path.display()));
+    remove_file(path.clone())
+      .unwrap_or_else(|_| panic!("Couldn't delete our db at {}", path.display()));
   }
 
   fn lock_file(location: &Path) -> PathBuf {
@@ -117,7 +117,7 @@ impl<'a> ReplayLog<'a> {
   }
 }
 
-impl<'a> Iterator for ReplayLog<'a> {
+impl Iterator for ReplayLog<'_> {
   type Item = (Option<ProjectKey>, Action);
 
   fn next(&mut self) -> Option<Self::Item> {
