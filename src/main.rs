@@ -22,7 +22,7 @@ use std::fs;
 
 use crate::core::Project;
 use chrono::{DateTime, Datelike, Local};
-use clap::{arg, App, AppSettings, ArgMatches};
+use clap::{arg, ArgMatches, Command};
 use console::{style, Term};
 use itertools::Itertools;
 use std::io::ErrorKind;
@@ -34,41 +34,32 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_DIRECTORY: &str = ".timeknight";
 
 fn main() {
-  let matches = App::new("timeknight")
+  let matches = Command::new("timeknight")
     .about("Traces where all that time goes...")
-    .setting(AppSettings::SubcommandRequiredElseHelp)
     .version(VERSION)
+    .subcommand_required(true)
     .subcommand(
-      App::new("project")
+      Command::new("project")
         .about("Project management")
-        .subcommand(
-          App::new("add")
-            .arg(arg!(<NAME> "The project name to create"))
-            .setting(AppSettings::ArgRequiredElseHelp),
-        )
-        .subcommand(
-          App::new("del")
-            .arg(arg!(<NAME> "The project name to delete"))
-            .setting(AppSettings::ArgRequiredElseHelp),
-        )
-        .subcommand(App::new("list"))
-        .setting(AppSettings::ArgRequiredElseHelp),
+        .subcommand_required(true)
+        .subcommand(Command::new("add").arg(arg!(<NAME> "The project name to create")))
+        .subcommand(Command::new("del").arg(arg!(<NAME> "The project name to delete")))
+        .subcommand(Command::new("list")),
     )
     .subcommand(
-      App::new("start")
+      Command::new("start")
         .about("Starts tracking time for a project")
-        .arg(arg!(<NAME> "the project's name to start tracking time for"))
-        .setting(AppSettings::ArgRequiredElseHelp),
+        .arg(arg!(<NAME> "the project's name to start tracking time for")),
     )
-    .subcommand(App::new("stop").about("Stops tracking time"))
-    .subcommand(App::new("status").about("Displays current status"))
+    .subcommand(Command::new("stop").about("Stops tracking time"))
+    .subcommand(Command::new("status").about("Displays current status"))
     .subcommand(
-      App::new("report")
+      Command::new("report")
         .about("Reports")
         .arg(
           arg!(<PERIOD> "Period to produce the report for")
             .required(false)
-            .possible_values([
+            .value_parser(clap::builder::PossibleValuesParser::new([
               "ever",
               "today",
               "yesterday",
@@ -76,12 +67,12 @@ fn main() {
               "lastweek",
               "month",
               "lastmonth",
-            ])
+            ]))
             .default_value("ever"),
         )
         .arg(
           arg!(--"by" <GROUPING>)
-            .possible_values(["day"])
+            .value_parser(clap::builder::PossibleValuesParser::new(["day"]))
             .required(false),
         ),
     )
@@ -115,8 +106,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
   match matches.subcommand() {
     Some(("project", sub_matches)) => match sub_matches.subcommand() {
       Some(("add", sub_matches)) => {
-        let project = sub_matches.value_of("NAME").expect("required");
-        match database.add_project(project.to_string()) {
+        let project = sub_matches
+          .get_one::<String>("NAME")
+          .expect("required")
+          .clone();
+        match database.add_project(project.clone()) {
           Ok(project) => {
             println!(
               "{} project '{}'",
@@ -134,8 +128,11 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
         }
       }
       Some(("del", sub_matches)) => {
-        let project = sub_matches.value_of("NAME").expect("required");
-        match database.remove_project(project.to_string()) {
+        let project = sub_matches
+          .get_one::<String>("NAME")
+          .expect("required")
+          .clone();
+        match database.remove_project(project.clone()) {
           Ok(project) => {
             println!(
               "{} project '{}'",
@@ -165,7 +162,7 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       _ => unreachable!("clap should ensure we don't get here"),
     },
     Some(("start", sub_matches)) => {
-      let name = sub_matches.value_of("NAME").expect("required");
+      let name = sub_matches.get_one::<String>("NAME").expect("required");
       if database.start_on(name.to_string()).is_ok() {
         println!(
           "{} tracking time on '{}'",
@@ -210,8 +207,13 @@ fn handle_command(matches: ArgMatches, database: &mut Database) {
       let mut projects = database.list_projects();
       projects.sort_by_key(|p| p.name().to_lowercase());
       let now = Local::now();
-      let period = sub_matches.value_of("PERIOD").unwrap();
-      let lines = build_report(&projects, now, period, sub_matches.value_of("by").is_some());
+      let period = sub_matches.get_one::<String>("PERIOD").unwrap();
+      let lines = build_report(
+        &projects,
+        now,
+        period,
+        sub_matches.get_one::<String>("by").is_some(),
+      );
       print_report(lines);
     }
     _ => unreachable!("clap should ensure we don't get here"),
